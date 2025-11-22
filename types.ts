@@ -21,6 +21,7 @@ export interface ParcelType {
   subscriptionFee: number;
   description: string;
   status: ParcelStatus;
+  imageUrl: string;
 }
 
 export interface UserData {
@@ -83,7 +84,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 2357649,
     subscriptionFee: 50000,
     description: "Zone: Habitation Ordinaire (L2), Section A, Lot 06",
-    status: 'AVAILABLE'
+    status: 'AVAILABLE',
+    imageUrl: "https://images.unsplash.com/photo-1599939571322-792a326991f2?auto=format&fit=crop&w=800&q=80"
   },
   {
     id: "PARCEL-1757171533503005",
@@ -93,7 +95,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 1560321,
     subscriptionFee: 50000,
     description: "Zone: Habitation Ordinaire (L2), Section B, Lot 12",
-    status: 'AVAILABLE'
+    status: 'AVAILABLE',
+    imageUrl: "https://images.unsplash.com/photo-1499696010180-ea84719529b1?auto=format&fit=crop&w=800&q=80"
   },
   {
     id: "PARCEL-1757171598634028",
@@ -103,7 +106,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 3115080,
     subscriptionFee: 50000,
     description: "Zone: Habitation Angle, Section C, Lot 01",
-    status: 'AVAILABLE'
+    status: 'AVAILABLE',
+    imageUrl: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80"
   },
   {
     id: "PARCEL-COMM-88293",
@@ -113,7 +117,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 2970000,
     subscriptionFee: 50000,
     description: "Zone: Commerciale, Section D, Lot 04",
-    status: 'AVAILABLE'
+    status: 'AVAILABLE',
+    imageUrl: "https://images.unsplash.com/photo-1533378154896-668f952607a4?auto=format&fit=crop&w=800&q=80"
   },
   {
     id: "PARCEL-COMM-BITUME-99123",
@@ -123,7 +128,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 6750000,
     subscriptionFee: 50000,
     description: "Zone: Commerciale Prestige, Façade Goudronnée, Section E, Lot 05",
-    status: 'RESERVED'
+    status: 'RESERVED',
+    imageUrl: "https://images.unsplash.com/photo-1449844908441-8829872d2607?auto=format&fit=crop&w=800&q=80"
   },
   {
     id: "PARCEL-SOC-1758282910",
@@ -133,7 +139,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 840000,
     subscriptionFee: 50000,
     description: "Zone: Sociale, Section F, Lot 22",
-    status: 'AVAILABLE'
+    status: 'AVAILABLE',
+    imageUrl: "https://images.unsplash.com/photo-1518182170546-07661d4eea9f?auto=format&fit=crop&w=800&q=80"
   },
   {
     id: "PARCEL-SOC-EXT-223",
@@ -143,7 +150,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 1050000,
     subscriptionFee: 50000,
     description: "Zone: Sociale Extension, Section K, Lot 14",
-    status: 'AVAILABLE'
+    status: 'AVAILABLE',
+    imageUrl: "https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&w=800&q=80"
   },
   {
     id: "PARCEL-RES-1759393921",
@@ -153,7 +161,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 3500000,
     subscriptionFee: 50000,
     description: "Zone: Résidentielle (L3), Section G, Lot 08",
-    status: 'SOLD'
+    status: 'SOLD',
+    imageUrl: "https://images.unsplash.com/photo-1504309092620-4d0c9d37780b?auto=format&fit=crop&w=800&q=80"
   },
   {
     id: "PARCEL-ART-28394",
@@ -163,7 +172,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 2000000,
     subscriptionFee: 50000,
     description: "Zone: Artisanale, Section H, Lot 15",
-    status: 'AVAILABLE'
+    status: 'AVAILABLE',
+    imageUrl: "https://images.unsplash.com/photo-1545558014-8692077e9b5c?auto=format&fit=crop&w=800&q=80"
   },
   {
     id: "PARCEL-IND-55920",
@@ -173,7 +183,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 4500000,
     subscriptionFee: 50000,
     description: "Zone: Industrielle, Section I, Lot 02",
-    status: 'AVAILABLE'
+    status: 'AVAILABLE',
+    imageUrl: "https://images.unsplash.com/photo-1536895058696-a69b1c7ba34d?auto=format&fit=crop&w=800&q=80"
   },
   {
     id: "PARCEL-RES-LUX-10293",
@@ -183,7 +194,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 7200000,
     subscriptionFee: 50000,
     description: "Zone: Résidentielle (L1), Section J, Lot 09",
-    status: 'AVAILABLE'
+    status: 'AVAILABLE',
+    imageUrl: "https://images.unsplash.com/photo-1464582883107-8adf2dca8a9f?auto=format&fit=crop&w=800&q=80"
   }
 ];
 

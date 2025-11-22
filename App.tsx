@@ -4,10 +4,183 @@ import { SubscriptionState, SubscriptionStep, UserData, ParcelType, MOCK_PARCELS
 import StepIndicator from './components/StepIndicator';
 import Button from './components/Button';
 import AdminPanel from './components/AdminPanel';
-import { CheckCircle, MapPin, User, CreditCard, FileText, Smartphone, Clock, ChevronLeft, ChevronRight, Info, Building2, Phone, ShieldCheck, Copy, Loader2, Lock, ArrowUp, ArrowDown, DollarSign, Mail, Check, X, AlertCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle, MapPin, User, CreditCard, FileText, Smartphone, Clock, ChevronLeft, ChevronRight, Info, Building2, Phone, ShieldCheck, Copy, Loader2, Lock, ArrowUp, ArrowDown, DollarSign, Mail, Check, X, AlertCircle, AlertTriangle, Wand2, Image as ImageIcon } from 'lucide-react';
 import { supabase, safeSupabaseQuery } from './lib/supabaseClient';
+import { GoogleGenAI } from "@google/genai";
 
 // --- Helper Components for each Step --- //
+
+const ParcelVisualizer: React.FC<{ 
+  isOpen: boolean; 
+  onClose: () => void; 
+  parcel: ParcelType; 
+}> = ({ isOpen, onClose, parcel }) => {
+  const [prompt, setPrompt] = useState("");
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setGeneratedImage(null);
+      setPrompt("");
+      setError(null);
+    }
+  }, [isOpen]);
+
+  const handleGenerate = async () => {
+    if (!prompt.trim()) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      // Fetch original image to get blob/base64
+      // Using cross-origin fetch might be restricted depending on source, 
+      // but for this demo we assume accessible URLs or handling via proxy if needed.
+      // In a real prod env, this should be handled server-side or via proper CORS config.
+      const imgResponse = await fetch(parcel.imageUrl);
+      const blob = await imgResponse.blob();
+      
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const result = reader.result as string;
+            // Remove data:image/jpeg;base64, prefix
+            resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-image',
+        contents: {
+          parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
+            { text: `Modifie cette image de parcelle de terrain au Burkina Faso en suivant cette instruction : "${prompt}". Garde un style réaliste, naturel et adapté au contexte local (sahel, terre rouge, végétation locale).` },
+          ],
+        },
+      });
+
+      // Extract generated image
+      let foundImage = false;
+      if (response.candidates && response.candidates[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData) {
+            const base64EncodeString = part.inlineData.data;
+            setGeneratedImage(`data:image/png;base64,${base64EncodeString}`);
+            foundImage = true;
+            break;
+          }
+        }
+      }
+      
+      if (!foundImage) {
+        setError("Aucune image générée. Veuillez réessayer avec une autre description.");
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError("Une erreur est survenue lors de la génération. Veuillez réessayer.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+        
+        {/* Image Area */}
+        <div className="flex-1 bg-gray-900 flex items-center justify-center p-4 relative min-h-[300px]">
+          <div className="relative w-full h-full flex flex-col items-center justify-center">
+            {isLoading ? (
+               <div className="text-white flex flex-col items-center gap-3">
+                 <Loader2 size={48} className="animate-spin text-green-500" />
+                 <p className="animate-pulse">L'IA aménage votre parcelle...</p>
+               </div>
+            ) : generatedImage ? (
+              <img src={generatedImage} alt="Généré" className="max-w-full max-h-full object-contain rounded shadow-lg" />
+            ) : (
+              <img src={parcel.imageUrl} alt="Original" className="max-w-full max-h-full object-contain rounded shadow-lg opacity-90" />
+            )}
+            
+            {/* Toggle Original/Generated hint if generated exists */}
+            {generatedImage && !isLoading && (
+              <div className="absolute top-4 right-4 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-md">
+                Résultat IA
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Controls Area */}
+        <div className="w-full md:w-96 bg-white p-6 flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+              <Wand2 className="text-purple-600" /> 
+              Studio IA
+            </h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-red-500">
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="flex-1 space-y-6 overflow-y-auto">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Votre projet d'aménagement</label>
+              <p className="text-xs text-gray-500">Décrivez ce que vous souhaitez voir sur cette parcelle (ex: villa, jardin, clôture...)</p>
+              <textarea 
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Ex: Ajoute une petite villa moderne avec un toit en tuiles et quelques manguiers autour."
+                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none h-32 resize-none text-sm"
+              />
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 flex items-start gap-2">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-xs text-blue-800">
+              <p className="flex gap-2">
+                <Info size={14} className="shrink-0 mt-0.5" />
+                L'intelligence artificielle générera une prévisualisation réaliste basée sur votre description.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-gray-100 space-y-3">
+             <Button 
+               onClick={handleGenerate} 
+               disabled={isLoading || !prompt.trim()}
+               className="w-full bg-purple-600 hover:bg-purple-700 focus:ring-purple-500 flex justify-center items-center gap-2"
+             >
+               {isLoading ? 'Génération en cours...' : <><Wand2 size={18} /> Générer l'aperçu</>}
+             </Button>
+             {generatedImage && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setGeneratedImage(null)}
+                  className="w-full"
+                >
+                  Réinitialiser l'image
+                </Button>
+             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const StepConditions: React.FC<{ accepted: boolean; onToggle: () => void }> = ({ accepted, onToggle }) => (
   <div className="space-y-4">
@@ -233,6 +406,7 @@ const StepParcel: React.FC<{
   onSelect: (parcel: ParcelType) => void 
 }> = ({ parcels, selected, onSelect }) => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [visualizerParcel, setVisualizerParcel] = useState<ParcelType | null>(null);
 
   const sortedParcels = [...parcels].sort((a, b) => {
     if (sortOrder === 'asc') {
@@ -269,7 +443,7 @@ const StepParcel: React.FC<{
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-6">
         {sortedParcels.map((parcel) => {
           const isSelected = selected?.id === parcel.id;
           const isUnavailable = parcel.status !== 'AVAILABLE';
@@ -278,64 +452,100 @@ const StepParcel: React.FC<{
             <div 
               key={parcel.id}
               onClick={() => !isUnavailable && onSelect(parcel)}
-              className={`cursor-pointer border rounded-xl p-5 transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] relative group overflow-hidden
+              className={`cursor-pointer border rounded-xl overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] relative group flex flex-col md:flex-row
                 ${isUnavailable ? 'opacity-60 grayscale bg-gray-50 cursor-not-allowed' : ''}
                 ${isSelected 
                   ? 'border-2 border-green-600 bg-green-50 shadow-lg ring-1 ring-green-500 transform scale-[1.02] z-10' 
-                  : !isUnavailable ? 'border-gray-200 bg-white hover:shadow-md hover:border-green-300 hover:bg-gray-50 hover:scale-[1.01]' : 'border-gray-200'}`}
+                  : !isUnavailable ? 'border-gray-200 bg-white hover:shadow-md hover:border-green-300 hover:bg-gray-50' : 'border-gray-200 bg-gray-50'}`}
             >
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex gap-2">
-                  <span className={`inline-block px-2 py-1 text-xs font-bold rounded-md transition-colors duration-300
-                      ${isSelected ? 'bg-green-200 text-green-800' : 'bg-blue-100 text-blue-700'}`}>
-                      {parcel.category}
-                  </span>
-                  {isUnavailable && (
-                      <span className="inline-block px-2 py-1 text-xs font-bold rounded-md bg-red-100 text-red-800">
-                          {parcel.status === 'SOLD' ? 'VENDU' : 'RÉSERVÉ'}
-                      </span>
-                  )}
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-gray-400 group-hover:text-gray-500 transition-colors">{parcel.id}</span>
-                  {/* Animated Check Icon */}
-                  {!isUnavailable && (
-                      <div className={`transition-all duration-500 ease-out transform ${isSelected ? 'scale-100 opacity-100 rotate-0' : 'scale-0 opacity-0 -rotate-90'}`}>
-                          <div className="bg-green-600 text-white rounded-full p-1 shadow-sm">
-                              <CheckCircle size={14} strokeWidth={3} />
-                          </div>
-                      </div>
-                  )}
-                </div>
-              </div>
-              
-              <h4 className={`text-xl font-bold mb-1 transition-colors duration-300 ${isSelected ? 'text-green-900' : 'text-gray-900'}`}>
-                {parcel.totalPrice.toLocaleString('fr-FR')} FCFA
-              </h4>
-              
-              <div className="text-sm text-gray-600 space-y-1 mb-3">
-                <p>Surface: <span className="font-semibold text-gray-800">{parcel.area} m²</span></p>
-                <p>Prix/m²: {parcel.pricePerM2.toLocaleString('fr-FR')} FCFA</p>
-              </div>
-              
-              <p className="text-xs text-gray-500 border-t pt-2 transition-colors duration-300 border-gray-100 group-hover:border-green-200">{parcel.description}</p>
+              {/* Image Section */}
+              <div className="w-full md:w-1/3 h-48 md:h-auto relative overflow-hidden">
+                 <img 
+                   src={parcel.imageUrl} 
+                   alt={`Parcelle ${parcel.id}`} 
+                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                 />
+                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent md:bg-gradient-to-r"></div>
+                 
+                 {/* Category Badge */}
+                 <div className="absolute top-3 left-3">
+                    <span className={`inline-block px-2 py-1 text-xs font-bold rounded-md backdrop-blur-md shadow-sm
+                        ${isSelected ? 'bg-green-600 text-white' : 'bg-white/90 text-gray-800'}`}>
+                        {parcel.category}
+                    </span>
+                 </div>
 
-              {!isUnavailable && (
-                  <button className={`w-full mt-4 py-2 rounded-lg font-medium text-sm transition-all duration-300 flex items-center justify-center gap-2
-                  ${isSelected ? 'bg-green-600 text-white shadow-md translate-y-0' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
-                  {isSelected ? (
-                      <>
-                      <CheckCircle size={16} className="animate-pulse" />
-                      Sélectionné
-                      </>
-                  ) : 'Choisir'}
-                  </button>
-              )}
+                 {/* Status Badge */}
+                 {isUnavailable && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                       <span className="px-4 py-2 text-sm font-bold rounded-md bg-red-600 text-white transform -rotate-12 shadow-lg border-2 border-white">
+                          {parcel.status === 'SOLD' ? 'VENDU' : 'RÉSERVÉ'}
+                       </span>
+                    </div>
+                 )}
+
+                 {/* Selected Indicator */}
+                 {!isUnavailable && isSelected && (
+                     <div className="absolute bottom-3 right-3 bg-green-600 text-white rounded-full p-1.5 shadow-lg animate-in zoom-in">
+                         <CheckCircle size={20} strokeWidth={3} />
+                     </div>
+                 )}
+              </div>
+
+              {/* Content Section */}
+              <div className="p-5 flex flex-col justify-between w-full md:w-2/3">
+                <div>
+                    <div className="flex justify-between items-start mb-2">
+                        <h4 className={`text-xl font-bold transition-colors duration-300 ${isSelected ? 'text-green-900' : 'text-gray-900'}`}>
+                            {parcel.totalPrice.toLocaleString('fr-FR')} FCFA
+                        </h4>
+                        <span className="font-mono text-xs text-gray-400">{parcel.id}</span>
+                    </div>
+                    
+                    <div className="text-sm text-gray-600 space-y-1 mb-3">
+                        <div className="flex items-center gap-4">
+                            <p className="flex items-center gap-1"><ImageIcon size={14}/> {parcel.area} m²</p>
+                            <p className="flex items-center gap-1"><DollarSign size={14}/> {parcel.pricePerM2.toLocaleString()} /m²</p>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2 line-clamp-2">{parcel.description}</p>
+                    </div>
+                </div>
+
+                <div className="mt-4 flex gap-3">
+                    {!isUnavailable && (
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setVisualizerParcel(parcel);
+                            }}
+                            className="flex-1 py-2 px-3 rounded-lg font-medium text-xs md:text-sm transition-all duration-300 flex items-center justify-center gap-2 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 hover:border-purple-300"
+                        >
+                            <Wand2 size={14} />
+                            Simuler un aménagement
+                        </button>
+                    )}
+                    
+                    {!isUnavailable && (
+                        <button className={`flex-1 py-2 px-3 rounded-lg font-medium text-xs md:text-sm transition-all duration-300 flex items-center justify-center gap-2
+                        ${isSelected ? 'bg-green-600 text-white shadow-md' : 'bg-gray-900 text-white hover:bg-gray-800'}`}>
+                        {isSelected ? 'Sélectionné' : 'Choisir cette parcelle'}
+                        </button>
+                    )}
+                </div>
+              </div>
             </div>
           );
         })}
       </div>
+
+      {/* AI Visualizer Modal */}
+      {visualizerParcel && (
+        <ParcelVisualizer 
+            isOpen={true} 
+            onClose={() => setVisualizerParcel(null)} 
+            parcel={visualizerParcel} 
+        />
+      )}
     </div>
   );
 };
@@ -349,7 +559,6 @@ const StepPayment: React.FC<{
   onPaymentComplete: () => void;
 }> = ({ userData, parcel, method, setMethod, paymentStatus, onPaymentComplete }) => {
   const [timeLeft, setTimeLeft] = useState(20 * 60);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [transactionInput, setTransactionInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [userConfirmed, setUserConfirmed] = useState(false);
@@ -366,12 +575,6 @@ const StepPayment: React.FC<{
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const handleCopy = (text: string, field: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
   };
 
   // Ouvrir la modale de confirmation au lieu de payer direct
@@ -395,7 +598,6 @@ const StepPayment: React.FC<{
     const mockId = "CI-" + Math.floor(Math.random() * 10000000);
     setTransactionInput(mockId);
     setUserConfirmed(true);
-    // Note: In demo simulate we don't auto-submit to let user see the confirm modal
   }
 
   // Payment Steps Visual Logic

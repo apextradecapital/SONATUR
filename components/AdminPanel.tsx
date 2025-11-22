@@ -22,7 +22,9 @@ import {
   PieChart,
   BarChart,
   FileText,
-  Calendar
+  Calendar,
+  Clock,
+  History
 } from 'lucide-react';
 import Button from './Button';
 
@@ -175,6 +177,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
       setIdError(null);
   }
 
+  // Helper for Number Inputs with Spaces
+  const handleFormattedNumberChange = (field: keyof ParcelType, value: string) => {
+      // Remove all non-numeric chars (spaces, etc)
+      const cleanValue = value.replace(/[^0-9]/g, '');
+      const numberValue = cleanValue ? parseInt(cleanValue, 10) : 0;
+      setNewParcel({ ...newParcel, [field]: numberValue });
+  };
+
+  const formatNumber = (num: number) => {
+      return num.toLocaleString('fr-FR');
+  };
+
   // Export to CSV Helper
   const exportToCSV = (data: any[], filename: string) => {
     if (!data.length) {
@@ -206,18 +220,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleSaveParcel = () => {
     setIdError(null);
 
-    if (!newParcel.id || !newParcel.category || !newParcel.description) {
-      alert("Veuillez remplir tous les champs obligatoires (ID, Catégorie, Description)");
+    // Relaxed validation: only check if fields are not empty
+    if (!newParcel.id || !newParcel.category) {
+      alert("Veuillez remplir au moins l'ID et la Catégorie");
       return;
     }
 
-    const idRegex = /^[A-Z0-9-]+$/i;
-    if (!idRegex.test(newParcel.id)) {
-      setIdError("L'ID ne doit contenir que des lettres, chiffres et tirets (-).");
-      return;
-    }
-
-    // If not editing, check if ID already exists
+    // If not editing, check if ID already exists (Keep this for data integrity)
     if (!isEditingMode && parcels.some(p => p.id === newParcel.id)) {
       setIdError("Cet ID de parcelle existe déjà.");
       return;
@@ -356,13 +365,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         {/* Email Notification Status */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-100 text-purple-600 rounded-full">
+            <div className="p-3 bg-purple-100 text-purple-600 rounded-full relative">
                 <Bell size={24} />
+                {lastEmailSent && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>}
             </div>
-            <div>
-                <p className="text-sm text-gray-500">Dernière Notification</p>
-                <h3 className="text-sm font-bold text-gray-800 truncate" title={lastEmailSent || "Aucune"}>
-                    {lastEmailSent || "Aucune"}
+            <div className="overflow-hidden">
+                <p className="text-sm text-gray-500">Emails système</p>
+                <h3 className="text-xs font-medium text-gray-800 truncate" title={lastEmailSent || "Aucune notification"}>
+                    {lastEmailSent ? "Envoyé récemment" : "En attente"}
                 </h3>
             </div>
             </div>
@@ -374,390 +384,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
     </>
   );
 
-  const renderSubscriptionDetailsModal = () => {
-    if (!viewingSub) return null;
-    const parcel = parcels.find(p => p.id === viewingSub.parcelId);
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in duration-200 flex flex-col">
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
-                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                        <FileText className="text-blue-600" />
-                        Détails Dossier: {viewingSub.id}
-                    </h3>
-                    <button 
-                        onClick={() => setViewingSub(null)}
-                        className="text-gray-400 hover:text-red-500 transition"
-                    >
-                        <X size={24} />
-                    </button>
-                </div>
-                
-                <div className="p-6 space-y-6 overflow-y-auto">
-                    {/* Client Info */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2 border-b pb-2 font-bold text-gray-500 text-xs uppercase">Informations Client</div>
-                        <div>
-                            <label className="text-xs text-gray-400">Nom Complet</label>
-                            <p className="font-bold text-gray-800">{viewingSub.userData.fullName}</p>
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-400">Téléphone</label>
-                            <p className="font-bold text-gray-800">{viewingSub.userData.phone}</p>
-                        </div>
-                        <div>
-                            <label className="text-xs text-gray-400">Email</label>
-                            <p className="font-medium text-gray-700">{viewingSub.userData.email || '-'}</p>
-                        </div>
-                         <div>
-                            <label className="text-xs text-gray-400">Pièce d'identité</label>
-                            <p className="font-medium text-gray-700">{viewingSub.userData.idType} - {viewingSub.userData.idNumber}</p>
-                        </div>
-                    </div>
-
-                    {/* Parcel Info */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2 border-b pb-2 font-bold text-gray-500 text-xs uppercase">Parcelle</div>
-                        <div>
-                            <label className="text-xs text-gray-400">ID Parcelle</label>
-                            <p className="font-mono font-bold text-gray-800">{viewingSub.parcelId}</p>
-                        </div>
-                         <div>
-                            <label className="text-xs text-gray-400">Catégorie</label>
-                            <p className="font-medium text-gray-700">{parcel?.category}</p>
-                        </div>
-                    </div>
-
-                    {/* Status History */}
-                    <div>
-                        <div className="border-b pb-2 font-bold text-gray-500 text-xs uppercase mb-4">Historique des statuts</div>
-                        <div className="space-y-0 pl-2 border-l-2 border-gray-200 ml-2">
-                            {viewingSub.history && viewingSub.history.length > 0 ? viewingSub.history.map((entry, idx) => (
-                                <div key={idx} className="relative pl-6 pb-6 last:pb-0">
-                                    {/* Dot */}
-                                    <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 border-white shadow-sm
-                                        ${entry.status === 'PENDING' ? 'bg-yellow-500' : 
-                                          entry.status === 'VALIDATED' ? 'bg-green-500' : 'bg-red-500'}`}>
-                                    </div>
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold mb-1 uppercase
-                                                 ${entry.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' : 
-                                                   entry.status === 'VALIDATED' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                {entry.status}
-                                            </span>
-                                            <p className="text-sm text-gray-600 italic">"{entry.comment || 'Aucun commentaire'}"</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-xs font-bold text-gray-500">{new Date(entry.date).toLocaleDateString()}</p>
-                                            <p className="text-[10px] text-gray-400">{new Date(entry.date).toLocaleTimeString()}</p>
-                                            <p className="text-[10px] font-mono text-blue-500 mt-1">{entry.updatedBy}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )) : (
-                                <p className="text-sm text-gray-400 italic pl-4">Aucun historique disponible.</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-                
-                <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-xl">
-                    <Button variant="outline" onClick={() => setViewingSub(null)}>Fermer</Button>
-                </div>
-            </div>
-        </div>
-    );
-  };
-
-  const renderSubscriptions = () => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-        <h2 className="text-lg font-bold text-gray-800">Demandes de souscription</h2>
-        
-        <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
-            {/* Date Filters */}
-            <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border">
-                <div className="flex items-center px-2 gap-1 text-gray-500 text-xs">
-                    <Calendar size={14} />
-                    Du
-                </div>
-                <input 
-                    type="date" 
-                    value={subDateStart}
-                    onChange={(e) => setSubDateStart(e.target.value)}
-                    className="bg-transparent text-xs border-none focus:ring-0 text-gray-700 py-1"
-                />
-                <div className="flex items-center px-2 gap-1 text-gray-500 text-xs border-l border-gray-200">
-                    Au
-                </div>
-                <input 
-                    type="date" 
-                    value={subDateEnd}
-                    onChange={(e) => setSubDateEnd(e.target.value)}
-                    className="bg-transparent text-xs border-none focus:ring-0 text-gray-700 py-1"
-                />
-            </div>
-
-            <div className="relative flex-grow md:flex-grow-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <input 
-                    type="text" 
-                    value={subscriptionSearch}
-                    onChange={(e) => setSubscriptionSearch(e.target.value)}
-                    placeholder="Rechercher..." 
-                    className="pl-10 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 w-full md:w-40 lg:w-60"
-                />
-            </div>
-            <button 
-                onClick={handleExportSubscriptions}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition"
-                title="Exporter en CSV"
-            >
-                <Download size={16} />
-            </button>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 text-gray-600 font-medium">
-            <tr>
-              <th className="px-6 py-4">Date</th>
-              <th className="px-6 py-4">Client</th>
-              <th className="px-6 py-4">Parcelle</th>
-              <th className="px-6 py-4">Paiement</th>
-              <th className="px-6 py-4">Statut</th>
-              <th className="px-6 py-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {filteredSubscriptions.length > 0 ? filteredSubscriptions.map((sub) => {
-               const parcel = parcels.find(p => p.id === sub.parcelId);
-               return (
-                <tr key={sub.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4 whitespace-nowrap">{new Date(sub.date).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-gray-900">{sub.userData.fullName}</div>
-                    <div className="text-xs text-gray-500">{sub.userData.phone}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-gray-900 font-mono text-xs bg-gray-100 px-2 py-1 rounded w-fit mb-1">{sub.parcelId}</div>
-                    <div className="text-xs text-gray-500">{parcel?.category}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-orange-50 text-orange-700 border border-orange-100">
-                      {sub.paymentMethod.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border
-                      ${sub.status === 'VALIDATED' ? 'bg-green-100 text-green-700 border-green-200' : 
-                        sub.status === 'REJECTED' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-yellow-100 text-yellow-700 border-yellow-200'}`}>
-                      {sub.status === 'VALIDATED' && <Check size={12} strokeWidth={3} />}
-                      {sub.status === 'REJECTED' && <X size={12} strokeWidth={3} />}
-                      {sub.status === 'PENDING' && <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>}
-                      {sub.status === 'VALIDATED' ? 'VALIDÉ' : sub.status === 'REJECTED' ? 'REJETÉ' : 'EN ATTENTE'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right flex justify-end items-center gap-2">
-                    <button 
-                        onClick={() => setViewingSub(sub)}
-                        className="text-blue-600 hover:bg-blue-100 p-2 rounded-full transition"
-                        title="Voir détails et historique"
-                    >
-                        <Eye size={18} />
-                    </button>
-
-                    {sub.status === 'PENDING' && (
-                      <>
-                        <button 
-                          onClick={() => onUpdateSubscription(sub.id, 'VALIDATED')}
-                          className="text-green-600 hover:bg-green-100 p-2 rounded-full transition" 
-                          title="Valider le dossier"
-                        >
-                          <Check size={18} strokeWidth={2.5} />
-                        </button>
-                        <button 
-                          onClick={() => onUpdateSubscription(sub.id, 'REJECTED')}
-                          className="text-red-600 hover:bg-red-100 p-2 rounded-full transition" 
-                          title="Rejeter le dossier"
-                        >
-                          <X size={18} strokeWidth={2.5} />
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              );
-            }) : (
-                <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">
-                        Aucune souscription trouvée pour cette recherche.
-                    </td>
-                </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  const renderParcels = () => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h2 className="text-lg font-bold text-gray-800">Gestion des Parcelles</h2>
-        
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            {/* Filters */}
-            <select 
-                value={parcelFilterCategory}
-                onChange={(e) => setParcelFilterCategory(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-green-500 bg-gray-50 text-gray-700"
-            >
-                <option value="ALL">Toutes Catégories</option>
-                <option value="Habitation Ordinaire">Habitation Ordinaire</option>
-                <option value="Habitation Angle">Habitation Angle</option>
-                <option value="Commerce Voie Non Bitumée">Commerce</option>
-                <option value="Logement Social">Logement Social</option>
-                <option value="Zone Industrielle">Zone Industrielle</option>
-            </select>
-
-            <select 
-                value={parcelFilterStatus}
-                onChange={(e) => setParcelFilterStatus(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-green-500 bg-gray-50 text-gray-700"
-            >
-                <option value="ALL">Tous Statuts</option>
-                <option value="AVAILABLE">Disponible</option>
-                <option value="RESERVED">Réservé</option>
-                <option value="SOLD">Vendu</option>
-            </select>
-
-            <button 
-                onClick={handleExportParcels}
-                className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition"
-                title="Exporter en CSV"
-            >
-                <FileSpreadsheet size={18} />
-            </button>
-
-            <Button 
-                variant="primary" 
-                className="text-xs py-2 px-3 flex items-center gap-2"
-                onClick={() => { setIsEditingMode(false); setIsAddingParcel(true); setNewParcel({ id: '', category: 'Habitation Ordinaire', area: 300, pricePerM2: 5000, totalPrice: 1500000, subscriptionFee: 50000, description: '', status: 'AVAILABLE' }); }}
-            >
-                <Plus size={16} /> Ajouter
-            </Button>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 text-gray-600 font-medium">
-            <tr>
-              <th className="px-6 py-4">ID</th>
-              <th className="px-6 py-4">Catégorie</th>
-              <th className="px-6 py-4">Surface</th>
-              <th className="px-6 py-4">Prix Total</th>
-              <th className="px-6 py-4">Statut</th>
-              <th className="px-6 py-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {filteredParcels.length > 0 ? filteredParcels.map((parcel) => (
-              <tr key={parcel.id} className="hover:bg-gray-50 transition">
-                <td className="px-6 py-4 font-mono text-xs font-bold text-gray-600">{parcel.id}</td>
-                <td className="px-6 py-4 font-medium">{parcel.category}</td>
-                <td className="px-6 py-4">{parcel.area} m²</td>
-                <td className="px-6 py-4">{parcel.totalPrice.toLocaleString()} FCFA</td>
-                <td className="px-6 py-4">
-                  <select 
-                    value={parcel.status}
-                    onChange={(e) => onUpdateParcel({...parcel, status: e.target.value as any})}
-                    className={`text-xs font-bold border rounded px-2 py-1 cursor-pointer focus:ring-2 focus:ring-green-500 outline-none transition
-                      ${parcel.status === 'AVAILABLE' ? 'bg-green-100 text-green-800 border-green-200' : 
-                        parcel.status === 'RESERVED' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-red-100 text-red-800 border-red-200'}`}
-                  >
-                    <option value="AVAILABLE">DISPONIBLE</option>
-                    <option value="RESERVED">RÉSERVÉ</option>
-                    <option value="SOLD">VENDU</option>
-                  </select>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex justify-end items-center gap-2">
-                    <button 
-                        onClick={() => openEditModal(parcel)}
-                        className="text-gray-400 hover:text-green-600 transition p-2 hover:bg-green-50 rounded-full"
-                        title="Modifier"
-                    >
-                        <Edit size={16} />
-                    </button>
-                    <button 
-                        onClick={() => setParcelToDelete(parcel)}
-                        className="text-gray-400 hover:text-red-600 transition p-2 hover:bg-red-50 rounded-full"
-                        title="Supprimer"
-                    >
-                        <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )) : (
-                <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500 italic">
-                        Aucune parcelle ne correspond aux filtres sélectionnés.
-                    </td>
-                </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  // Delete Confirmation Modal
-  const renderDeleteModal = () => {
-      if (!parcelToDelete) return null;
-      return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="bg-red-50 p-6 border-b border-red-100 flex flex-col items-center text-center">
-              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-3">
-                <Trash2 size={28} />
-              </div>
-              <h3 className="text-xl font-bold text-gray-800">Supprimer la parcelle ?</h3>
-              <p className="text-sm text-gray-600 mt-1">Cette action est irréversible.</p>
-            </div>
-            
-            <div className="p-6 text-center space-y-2">
-               <p className="text-gray-700">Vous êtes sur le point de supprimer :</p>
-               <p className="font-mono font-bold text-lg bg-gray-100 py-2 rounded">{parcelToDelete.id}</p>
-               <p className="text-xs text-gray-500 mt-2">
-                  Si des souscriptions sont liées à cette parcelle, elles risquent d'être corrompues.
-               </p>
-            </div>
-
-            <div className="p-4 bg-gray-50 flex gap-3">
-               <Button 
-                 variant="outline" 
-                 onClick={() => setParcelToDelete(null)}
-                 className="flex-1"
-               >
-                 Annuler
-               </Button>
-               <Button 
-                 variant="danger" 
-                 onClick={() => { onDeleteParcel(parcelToDelete.id); setParcelToDelete(null); }}
-                 className="flex-1"
-               >
-                 Confirmer la suppression
-               </Button>
-            </div>
-          </div>
-        </div>
-      );
-  };
-
+  // Updated renderAddParcelModal for Flexibility and Formatted Inputs
   const renderAddParcelModal = () => {
     if (!isAddingParcel) return null;
     return (
@@ -780,7 +407,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
             {/* Alert Info */}
             <div className="bg-blue-50 p-4 rounded-lg flex gap-3 text-blue-800 text-sm border border-blue-100">
                 <AlertCircle size={20} className="shrink-0" />
-                <p>Les nouvelles parcelles seront immédiatement visibles sur la plateforme client si le statut est défini sur "Disponible".</p>
+                <p>Les montants sont automatiquement formatés avec des espaces. Le prix total est calculé automatiquement.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -804,22 +431,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                         <AlertCircle size={12} /> {idError}
                     </p>
                 )}
-                {!isEditingMode && <p className="text-xs text-gray-400 mt-1">Format: Lettres majuscules, chiffres et tirets (-) uniquement.</p>}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
-                <select 
-                  value={newParcel.category}
-                  onChange={(e) => setNewParcel({...newParcel, category: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="Habitation Ordinaire">Habitation Ordinaire</option>
-                  <option value="Habitation Angle">Habitation Angle</option>
-                  <option value="Commerce Voie Non Bitumée">Commerce</option>
-                  <option value="Logement Social">Logement Social</option>
-                  <option value="Zone Industrielle">Zone Industrielle</option>
-                </select>
+                <div className="relative">
+                    <input
+                      list="categories"
+                      value={newParcel.category}
+                      onChange={(e) => setNewParcel({...newParcel, category: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      placeholder="Sélectionner ou saisir..."
+                    />
+                    <datalist id="categories">
+                      <option value="Habitation Ordinaire" />
+                      <option value="Habitation Angle" />
+                      <option value="Commerce Voie Non Bitumée" />
+                      <option value="Logement Social" />
+                      <option value="Zone Industrielle" />
+                    </datalist>
+                </div>
               </div>
 
               <div>
@@ -838,68 +469,63 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Surface (m²)</label>
                 <input 
-                  type="number" 
-                  value={newParcel.area}
-                  onChange={(e) => setNewParcel({...newParcel, area: Number(e.target.value)})}
+                  type="text"
+                  value={formatNumber(newParcel.area)} 
+                  onChange={(e) => handleFormattedNumberChange('area', e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="Ex: 300"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Prix Unitaire (FCFA/m²)</label>
                 <input 
-                  type="number" 
-                  value={newParcel.pricePerM2}
-                  onChange={(e) => setNewParcel({...newParcel, pricePerM2: Number(e.target.value)})}
+                  type="text"
+                  value={formatNumber(newParcel.pricePerM2)} 
+                  onChange={(e) => handleFormattedNumberChange('pricePerM2', e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="Ex: 5 000"
                 />
-                <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-50 p-1 rounded inline-block">
-                   Soit: {newParcel.pricePerM2.toLocaleString()} FCFA
-                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Prix Total (Calculé)</label>
                 <input 
-                  type="number" 
-                  value={newParcel.totalPrice}
+                  type="text" 
+                  value={formatNumber(newParcel.totalPrice)}
                   readOnly
-                  className="w-full p-2 border border-gray-200 rounded-lg bg-gray-100 font-bold text-gray-700 cursor-not-allowed"
+                  className="w-full p-2 border border-gray-200 rounded-lg bg-gray-100 font-bold text-gray-800 cursor-not-allowed"
                 />
-                <div className="text-xs text-green-600 mt-1 font-mono font-bold">
-                   Soit: {newParcel.totalPrice.toLocaleString()} FCFA
-                </div>
               </div>
 
                <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Frais de dossier (FCFA)</label>
                 <input 
-                  type="number" 
-                  value={newParcel.subscriptionFee}
-                  onChange={(e) => setNewParcel({...newParcel, subscriptionFee: Number(e.target.value)})}
+                  type="text" 
+                  value={formatNumber(newParcel.subscriptionFee)} 
+                  onChange={(e) => handleFormattedNumberChange('subscriptionFee', e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  placeholder="Ex: 50 000"
                 />
-                 <div className="text-xs text-gray-500 mt-1 font-mono bg-gray-50 p-1 rounded inline-block">
-                   Soit: {newParcel.subscriptionFee.toLocaleString()} FCFA
-                </div>
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description / Localisation</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description (Texte Libre)</label>
                 <textarea 
                   value={newParcel.description}
                   onChange={(e) => setNewParcel({...newParcel, description: e.target.value})}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
-                  rows={3}
-                  placeholder="Ex: Section A, Lot 12, face école..."
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono text-sm"
+                  rows={5}
+                  placeholder="Description libre, code HTML, ou JSON..."
                 />
+                <p className="text-xs text-gray-500 mt-1">Aucune restriction de format.</p>
               </div>
             </div>
           </div>
 
           <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-xl">
             <Button variant="outline" onClick={() => setIsAddingParcel(false)}>Annuler</Button>
-            <Button variant="primary" onClick={handleSaveParcel}>{isEditingMode ? 'Enregistrer les modifications' : 'Créer la parcelle'}</Button>
+            <Button variant="primary" onClick={handleSaveParcel}>{isEditingMode ? 'Enregistrer' : 'Créer'}</Button>
           </div>
         </div>
       </div>
@@ -918,80 +544,226 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
         
         <nav className="flex-1 p-4 space-y-2">
-          <button 
-            onClick={() => setActiveTab('dashboard')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition
-              ${activeTab === 'dashboard' ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-          >
-            <LayoutDashboard size={20} />
-            Tableau de bord
+          <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${activeTab === 'dashboard' ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <LayoutDashboard size={20} /> Tableau de bord
           </button>
-          
-          <button 
-            onClick={() => setActiveTab('subscriptions')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition
-              ${activeTab === 'subscriptions' ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-          >
-            <Users size={20} />
-            Souscriptions
+          <button onClick={() => setActiveTab('subscriptions')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${activeTab === 'subscriptions' ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <Users size={20} /> Souscriptions
           </button>
-          
-          <button 
-            onClick={() => setActiveTab('parcels')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition
-              ${activeTab === 'parcels' ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-          >
-            <Map size={20} />
-            Parcelles
+          <button onClick={() => setActiveTab('parcels')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${activeTab === 'parcels' ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+            <Map size={20} /> Parcelles
           </button>
-
-          <div className="pt-8 mt-8 border-t border-slate-800">
-             <p className="px-4 text-xs font-bold text-slate-500 uppercase mb-2">Système</p>
-             <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition">
-                <Settings size={20} />
-                Configuration
-             </button>
-          </div>
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <button 
-            onClick={onLogout}
-            className="w-full flex items-center gap-2 px-4 py-2 text-red-400 hover:bg-red-900/20 rounded-lg transition text-sm"
-          >
-            <LogOut size={16} />
-            Déconnexion
+          <button onClick={onLogout} className="w-full flex items-center gap-2 px-4 py-2 text-red-400 hover:bg-red-900/20 rounded-lg transition text-sm">
+            <LogOut size={16} /> Déconnexion
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto relative h-screen">
+        {/* Header */}
         <header className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-2xl font-bold text-gray-800">
               {activeTab === 'dashboard' ? 'Vue d\'ensemble' : 
-               activeTab === 'subscriptions' ? 'Gestion des Souscriptions' : 'Parc Foncier'}
+               activeTab === 'subscriptions' ? 'Gestion des Souscriptions' : 'Parc Foncier (Mode Flexible)'}
             </h2>
-            <p className="text-sm text-gray-500">Bienvenue sur votre espace d'administration sécurisé.</p>
           </div>
           <div className="flex items-center gap-3">
              <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-gray-700">Administrateur</p>
-                <p className="text-xs text-gray-400">Direction Commerciale</p>
              </div>
              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold shadow-sm border border-green-200">AD</div>
           </div>
         </header>
 
         {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'subscriptions' && renderSubscriptions()}
-        {activeTab === 'parcels' && renderParcels()}
+        
+        {activeTab === 'subscriptions' && (
+           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+               <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                   <h2 className="text-lg font-bold text-gray-800">Liste des Souscriptions</h2>
+                   <div className="flex gap-2">
+                       <input type="text" placeholder="Rechercher..." className="border p-2 rounded text-sm" value={subscriptionSearch} onChange={e => setSubscriptionSearch(e.target.value)} />
+                       <button onClick={handleExportSubscriptions} className="bg-gray-100 p-2 rounded"><Download size={16}/></button>
+                   </div>
+               </div>
+               <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-600">
+                            <tr>
+                                <th className="px-6 py-3">Date</th>
+                                <th className="px-6 py-3">Client</th>
+                                <th className="px-6 py-3">Parcelle</th>
+                                <th className="px-6 py-3">Statut</th>
+                                <th className="px-6 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredSubscriptions.map(sub => (
+                                <tr key={sub.id} className="border-b hover:bg-gray-50">
+                                    <td className="px-6 py-3">{new Date(sub.date).toLocaleDateString()}</td>
+                                    <td className="px-6 py-3">{sub.userData.fullName}</td>
+                                    <td className="px-6 py-3">{sub.parcelId}</td>
+                                    <td className="px-6 py-3">
+                                        <span className={`px-2 py-1 rounded text-xs font-bold ${sub.status === 'VALIDATED' ? 'bg-green-100 text-green-700' : sub.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                            {sub.status}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-3 text-right flex justify-end gap-2">
+                                        {sub.status === 'PENDING' && (
+                                            <>
+                                            <button onClick={() => onUpdateSubscription(sub.id, 'VALIDATED')} className="text-green-600 p-1 hover:bg-green-50 rounded" title="Valider"><Check size={16}/></button>
+                                            <button onClick={() => onUpdateSubscription(sub.id, 'REJECTED')} className="text-red-600 p-1 hover:bg-red-50 rounded" title="Rejeter"><X size={16}/></button>
+                                            </>
+                                        )}
+                                        <button onClick={() => setViewingSub(sub)} className="text-blue-600 p-1 hover:bg-blue-50 rounded" title="Voir détails"><Eye size={16}/></button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+               </div>
+           </div>
+        )}
+
+        {activeTab === 'parcels' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                    <h2 className="text-lg font-bold text-gray-800">Gestion Parcelles</h2>
+                    <div className="flex gap-2">
+                        <Button variant="primary" onClick={() => { setIsEditingMode(false); setIsAddingParcel(true); }} className="text-xs py-2 px-3 flex items-center gap-2">
+                            <Plus size={16} /> Ajouter
+                        </Button>
+                        <button onClick={handleExportParcels} className="bg-gray-100 p-2 rounded"><FileSpreadsheet size={16}/></button>
+                    </div>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                         <thead className="bg-gray-50 text-gray-600">
+                            <tr>
+                                <th className="px-6 py-3">ID</th>
+                                <th className="px-6 py-3">Catégorie</th>
+                                <th className="px-6 py-3">Statut</th>
+                                <th className="px-6 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredParcels.map(p => (
+                                <tr key={p.id} className="border-b hover:bg-gray-50">
+                                    <td className="px-6 py-3 font-mono">{p.id}</td>
+                                    <td className="px-6 py-3">{p.category}</td>
+                                    <td className="px-6 py-3">
+                                        <select 
+                                            value={p.status}
+                                            onChange={(e) => onUpdateParcel({...p, status: e.target.value as any})}
+                                            className="border rounded p-1 text-xs"
+                                        >
+                                            <option value="AVAILABLE">DISPONIBLE</option>
+                                            <option value="RESERVED">RÉSERVÉ</option>
+                                            <option value="SOLD">VENDU</option>
+                                        </select>
+                                    </td>
+                                    <td className="px-6 py-3 text-right flex justify-end gap-2">
+                                        <button onClick={() => openEditModal(p)} className="text-gray-500 hover:text-green-600"><Edit size={16}/></button>
+                                        <button onClick={() => setParcelToDelete(p)} className="text-gray-500 hover:text-red-600"><Trash2 size={16}/></button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        )}
         
         {/* Modals */}
         {renderAddParcelModal()}
-        {renderSubscriptionDetailsModal()}
-        {renderDeleteModal()}
+        
+        {viewingSub && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white p-6 rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                    <div className="flex justify-between items-center mb-4">
+                         <h3 className="font-bold text-lg flex items-center gap-2">
+                             <FileText size={20} className="text-green-600"/>
+                             Détails Souscription
+                         </h3>
+                         <button onClick={() => setViewingSub(null)}><X size={20} className="text-gray-400 hover:text-gray-600"/></button>
+                    </div>
+                    
+                    {/* Client Info */}
+                    <div className="bg-gray-50 p-4 rounded-lg mb-4 text-sm space-y-2">
+                        <p><span className="font-bold text-gray-700">ID:</span> {viewingSub.id}</p>
+                        <p><span className="font-bold text-gray-700">Nom:</span> {viewingSub.userData.fullName}</p>
+                        <p><span className="font-bold text-gray-700">Téléphone:</span> {viewingSub.userData.phone}</p>
+                        <p><span className="font-bold text-gray-700">Paiement:</span> {viewingSub.paymentMethod}</p>
+                        <p><span className="font-bold text-gray-700">Parcelle:</span> {viewingSub.parcelId}</p>
+                    </div>
+
+                    {/* Status History Timeline */}
+                    <div className="border-t pt-4">
+                        <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <History size={18} /> Historique des statuts
+                        </h4>
+                        <div className="space-y-0 relative pl-2">
+                            {/* Vertical Line */}
+                            <div className="absolute left-[19px] top-2 bottom-2 w-0.5 bg-gray-200"></div>
+
+                            {viewingSub.history && viewingSub.history.length > 0 ? (
+                                viewingSub.history.map((entry, index) => (
+                                    <div key={index} className="relative flex gap-4 items-start mb-6 last:mb-0">
+                                        <div className={`z-10 w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-sm shrink-0
+                                            ${entry.status === 'VALIDATED' ? 'bg-green-100 text-green-600' : 
+                                              entry.status === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'}`}>
+                                            {entry.status === 'VALIDATED' ? <Check size={16} /> : 
+                                             entry.status === 'REJECTED' ? <X size={16} /> : <Clock size={16} />}
+                                        </div>
+                                        <div className="flex-1 pt-1">
+                                            <p className="font-bold text-gray-800 text-sm">
+                                                {entry.status === 'PENDING' ? 'Dossier créé (En attente)' : 
+                                                 entry.status === 'VALIDATED' ? 'Dossier Validé' : 'Dossier Rejeté'}
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                {new Date(entry.date).toLocaleString('fr-FR')}
+                                            </p>
+                                            <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                                                <Users size={10} /> Modifié par: {entry.updatedBy}
+                                            </p>
+                                            {entry.comment && (
+                                                <div className="mt-2 bg-gray-50 p-2 rounded text-xs text-gray-600 italic border border-gray-100">
+                                                    "{entry.comment}"
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-gray-500 italic pl-4">Aucun historique disponible.</p>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="mt-6 flex justify-end">
+                        <Button variant="outline" onClick={() => setViewingSub(null)}>Fermer</Button>
+                    </div>
+                </div>
+            </div>
+        )}
+        
+        {parcelToDelete && (
+             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white p-6 rounded-lg max-w-sm w-full text-center">
+                    <h3 className="font-bold text-lg mb-2">Supprimer ?</h3>
+                    <p className="mb-4 text-sm">Confirmer la suppression de {parcelToDelete.id}</p>
+                    <div className="flex gap-2 justify-center">
+                        <Button variant="outline" onClick={() => setParcelToDelete(null)}>Annuler</Button>
+                        <Button variant="danger" onClick={() => { onDeleteParcel(parcelToDelete.id); setParcelToDelete(null); }}>Supprimer</Button>
+                    </div>
+                </div>
+            </div>
+        )}
       </main>
     </div>
   );

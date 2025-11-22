@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { SubscriptionStep } from '../types';
 import { Check } from 'lucide-react';
@@ -12,14 +13,15 @@ const StepIndicator: React.FC<StepIndicatorProps> = ({ currentStep }) => {
     { id: SubscriptionStep.IDENTIFICATION, label: "Identité" },
     { id: SubscriptionStep.PROGRAM, label: "Programme" },
     { id: SubscriptionStep.PARCEL, label: "Parcelle" },
+    { id: SubscriptionStep.RECAP, label: "Récapitulatif" },
     { id: SubscriptionStep.PAYMENT, label: "Paiement" },
   ];
 
   return (
     <div className="w-full px-4 py-4 bg-white shadow-sm mb-4">
-      <div className="flex items-center justify-between max-w-lg mx-auto relative">
+      <div className="flex items-center justify-between max-w-2xl mx-auto relative">
         {/* Connecting Line */}
-        <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10" />
+        <div className="absolute left-0 top-[15px] transform w-full h-1 bg-gray-200 -z-10" />
         
         {steps.map((step) => {
           const isCompleted = currentStep > step.id;
@@ -34,12 +36,16 @@ const StepIndicator: React.FC<StepIndicatorProps> = ({ currentStep }) => {
               >
                 {isCompleted ? <Check size={16} /> : step.id + 1}
               </div>
-              <span className={`text-[10px] mt-1 font-medium ${isCurrent ? 'text-green-700' : 'text-gray-400'}`}>
+              <span className={`text-[10px] mt-1 font-medium text-center hidden sm:block ${isCurrent ? 'text-green-700' : 'text-gray-400'}`}>
                 {step.label}
               </span>
             </div>
           );
         })}
+      </div>
+      {/* Mobile Label */}
+      <div className="text-center text-sm font-bold text-green-700 mt-2 sm:hidden">
+        {steps.find(s => s.id === currentStep)?.label || "Terminé"}
       </div>
     </div>
   );

@@ -4,8 +4,8 @@ export enum SubscriptionStep {
   IDENTIFICATION = 1,
   PROGRAM = 2,
   PARCEL = 3,
-  PAYMENT = 4,
-  RECAP = 5,
+  RECAP = 4,
+  PAYMENT = 5,
   CONFIRMATION = 6
 }
 
@@ -21,7 +21,6 @@ export interface ParcelType {
   subscriptionFee: number;
   description: string;
   status: ParcelStatus;
-  imageUrl: string;
 }
 
 export interface UserData {
@@ -32,10 +31,11 @@ export interface UserData {
   birthPlace: string;
   profession: string;
   gender: 'Homme' | 'Femme' | 'Autre' | '';
-  idType: 'CNIB' | 'Passeport' | '';
+  idType: 'CNIB' | 'Passeport' | 'Permis de conduire' | '';
   idNumber: string;
   idIssueDate: string;
-  idIssuePlace: string;
+  idIssuePlace: string; // Kept for internal consistency, though prompt didn't explicitly remove it
+  country: string;
   address: string;
   city: string;
 }
@@ -72,8 +72,16 @@ const getEnv = (key: string) => {
          (typeof process !== 'undefined' ? process.env?.[key] : undefined);
 };
 
-// Configuration WhatsApp avec fallback sur 22644386852
-export const SONATUR_PHONE = getEnv('NEXT_PUBLIC_WHATSAPP_NUMBER') || getEnv('VITE_WHATSAPP_NUMBER') || "22644386852";
+// Configuration WhatsApp Officiel SONATUR (Based on prompt request for official number)
+export const SONATUR_PHONE = "22644765504"; 
+
+export const COUNTRIES_WEST_CENTRAL_AFRICA = [
+  "Burkina Faso", "Bénin", "Côte d'Ivoire", "Cap-Vert", "Gambie", "Ghana", 
+  "Guinée", "Guinée-Bissau", "Liberia", "Mali", "Mauritanie", "Niger", 
+  "Nigeria", "Sénégal", "Sierra Leone", "Togo",
+  "Cameroun", "République Centrafricaine", "Congo", "Gabon", 
+  "Guinée Équatoriale", "Tchad", "RDC"
+];
 
 export const MOCK_PARCELS: ParcelType[] = [
   {
@@ -84,8 +92,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 2357649,
     subscriptionFee: 50000,
     description: "Zone: Habitation Ordinaire (L2), Section A, Lot 06",
-    status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1599939571322-792a326991f2?auto=format&fit=crop&w=800&q=80"
+    status: 'AVAILABLE'
   },
   {
     id: "PARCEL-1757171533503005",
@@ -95,8 +102,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 1560321,
     subscriptionFee: 50000,
     description: "Zone: Habitation Ordinaire (L2), Section B, Lot 12",
-    status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1499696010180-ea84719529b1?auto=format&fit=crop&w=800&q=80"
+    status: 'AVAILABLE'
   },
   {
     id: "PARCEL-1757171598634028",
@@ -106,8 +112,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 3115080,
     subscriptionFee: 50000,
     description: "Zone: Habitation Angle, Section C, Lot 01",
-    status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80"
+    status: 'AVAILABLE'
   },
   {
     id: "PARCEL-COMM-88293",
@@ -117,8 +122,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 2970000,
     subscriptionFee: 50000,
     description: "Zone: Commerciale, Section D, Lot 04",
-    status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1533378154896-668f952607a4?auto=format&fit=crop&w=800&q=80"
+    status: 'AVAILABLE'
   },
   {
     id: "PARCEL-COMM-BITUME-99123",
@@ -128,8 +132,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 6750000,
     subscriptionFee: 50000,
     description: "Zone: Commerciale Prestige, Façade Goudronnée, Section E, Lot 05",
-    status: 'RESERVED',
-    imageUrl: "https://images.unsplash.com/photo-1449844908441-8829872d2607?auto=format&fit=crop&w=800&q=80"
+    status: 'RESERVED'
   },
   {
     id: "PARCEL-SOC-1758282910",
@@ -139,8 +142,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 840000,
     subscriptionFee: 50000,
     description: "Zone: Sociale, Section F, Lot 22",
-    status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1518182170546-07661d4eea9f?auto=format&fit=crop&w=800&q=80"
+    status: 'AVAILABLE'
   },
   {
     id: "PARCEL-SOC-EXT-223",
@@ -150,8 +152,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 1050000,
     subscriptionFee: 50000,
     description: "Zone: Sociale Extension, Section K, Lot 14",
-    status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1589923188900-85dae523342b?auto=format&fit=crop&w=800&q=80"
+    status: 'AVAILABLE'
   },
   {
     id: "PARCEL-RES-1759393921",
@@ -161,8 +162,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 3500000,
     subscriptionFee: 50000,
     description: "Zone: Résidentielle (L3), Section G, Lot 08",
-    status: 'SOLD',
-    imageUrl: "https://images.unsplash.com/photo-1504309092620-4d0c9d37780b?auto=format&fit=crop&w=800&q=80"
+    status: 'SOLD'
   },
   {
     id: "PARCEL-ART-28394",
@@ -172,8 +172,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 2000000,
     subscriptionFee: 50000,
     description: "Zone: Artisanale, Section H, Lot 15",
-    status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1545558014-8692077e9b5c?auto=format&fit=crop&w=800&q=80"
+    status: 'AVAILABLE'
   },
   {
     id: "PARCEL-IND-55920",
@@ -183,8 +182,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 4500000,
     subscriptionFee: 50000,
     description: "Zone: Industrielle, Section I, Lot 02",
-    status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1536895058696-a69b1c7ba34d?auto=format&fit=crop&w=800&q=80"
+    status: 'AVAILABLE'
   },
   {
     id: "PARCEL-RES-LUX-10293",
@@ -194,8 +192,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     totalPrice: 7200000,
     subscriptionFee: 50000,
     description: "Zone: Résidentielle (L1), Section J, Lot 09",
-    status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1464582883107-8adf2dca8a9f?auto=format&fit=crop&w=800&q=80"
+    status: 'AVAILABLE'
   }
 ];
 
@@ -216,7 +213,8 @@ export const MOCK_SUBSCRIPTIONS: SubscriptionRecord[] = [
       idIssueDate: "2020-01-01",
       idIssuePlace: "Ouaga",
       city: "Ouagadougou",
-      address: "Secteur 25, Rue 12"
+      address: "Secteur 25, Rue 12",
+      country: "Burkina Faso"
     },
     parcelId: "PARCEL-1757171533503005",
     status: 'PENDING',
@@ -240,7 +238,8 @@ export const MOCK_SUBSCRIPTIONS: SubscriptionRecord[] = [
       idIssueDate: "2021-03-15",
       idIssuePlace: "Bobo",
       city: "Bobo-Dioulasso",
-      address: "Secteur 5"
+      address: "Secteur 5",
+      country: "Burkina Faso"
     },
     parcelId: "PARCEL-RES-1759393921",
     status: 'VALIDATED',

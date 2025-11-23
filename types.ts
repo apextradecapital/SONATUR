@@ -69,7 +69,12 @@ export interface PaymentInstructionConfig {
 }
 
 export interface SystemSettings {
+  companyName: string; // Ex: SONATUR
   whatsappNumber: string;
+  adminPin?: string; // Code PIN pour l'administration (modifiable)
+  contactEmail: string;
+  contactAddress: string;
+  footerText: string;
   timerDurationMinutes: number; // Durée du timer en minutes
   depositPercentHousing: number; // Ex: 10
   depositPercentCommercial: number; // Ex: 20
@@ -82,8 +87,18 @@ export interface SystemSettings {
   moovMoney: PaymentInstructionConfig;
 }
 
+const getEnv = (key: string) => {
+  return (typeof import.meta !== 'undefined' ? (import.meta as any).env?.[key] : undefined) || 
+         (typeof process !== 'undefined' ? process.env?.[key] : undefined);
+};
+
 export const DEFAULT_SETTINGS: SystemSettings = {
-  whatsappNumber: "22644386852",
+  companyName: "SONATUR",
+  whatsappNumber: getEnv('VITE_WHATSAPP_NUMBER') || "22644386852",
+  adminPin: getEnv('VITE_ADMIN_PIN') || "1306",
+  contactEmail: "info@sonatur.bf",
+  contactAddress: "01 BP 1234 Ouagadougou 01",
+  footerText: "Bâtir un cadre de vie idéal",
   timerDurationMinutes: 20,
   depositPercentHousing: 10,
   depositPercentCommercial: 20,
@@ -115,7 +130,7 @@ Pièces à fournir au plus tard le 01/01/2026 :
     steps: [
       "Composez *144# sur votre téléphone",
       "Sélectionnez 'Transfert d'argent'",
-      "Entrez le numéro : +226 44 38 68 52 (ADAMA SERI)",
+      "Entrez le numéro : 44 38 68 52",
       "Entrez le montant : MONTANT FCFA",
       "Confirmez avec votre code PIN",
       "Conservez le SMS de transaction",
@@ -129,7 +144,7 @@ Pièces à fournir au plus tard le 01/01/2026 :
     steps: [
       "Composez *555# sur votre téléphone",
       "Sélectionnez 'Transfert d'argent'",
-      "Entrez le numéro : 0000000000 (Non encore disponible)",
+      "Entrez le numéro : 00 00 00 00",
       "Entrez le montant : MONTANT FCFA",
       "Confirmez avec votre code PIN",
       "Conservez le SMS de transaction",
@@ -138,12 +153,7 @@ Pièces à fournir au plus tard le 01/01/2026 :
   }
 };
 
-const getEnv = (key: string) => {
-  return (typeof import.meta !== 'undefined' ? (import.meta as any).env?.[key] : undefined) || 
-         (typeof process !== 'undefined' ? process.env?.[key] : undefined);
-};
-
-export const SONATUR_PHONE = getEnv('VITE_WHATSAPP_NUMBER') || "22644386852";
+export const SONATUR_PHONE = DEFAULT_SETTINGS.whatsappNumber;
 
 // Données Mock mises à jour avec des images adaptées au contexte local (Burkina Faso / Sahel)
 export const MOCK_PARCELS: ParcelType[] = [

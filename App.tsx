@@ -4,7 +4,7 @@ import { SubscriptionStep, UserData, ParcelType, MOCK_PARCELS, MOCK_SUBSCRIPTION
 import StepIndicator from './components/StepIndicator';
 import Button from './components/Button';
 import AdminPanel from './components/AdminPanel';
-import { CheckCircle, MapPin, User, FileText, Smartphone, Clock, ChevronLeft, ChevronRight, Info, Building2, AlertTriangle, MessageCircle, X, ZoomIn } from 'lucide-react';
+import { CheckCircle, MapPin, User, FileText, Smartphone, Clock, ChevronLeft, ChevronRight, Info, Building2, AlertTriangle, MessageCircle, X, ZoomIn, Mail, Phone } from 'lucide-react';
 import { supabase, safeSupabaseQuery } from './lib/supabaseClient';
 
 // --- COLORS CONSTANTS ---
@@ -213,7 +213,7 @@ const StepSiteSelection: React.FC<{
     onToggle: (siteId: string) => void; 
 }> = ({ selectedSites, onToggle }) => (
     <div className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-800 text-center mb-6">Vente des parcelles SONATUR</h2>
+        <h2 className="text-xl font-bold text-gray-800 text-center mb-6">Vente des parcelles</h2>
         <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm flex gap-2 items-start mb-4">
              <Info size={16} className="mt-0.5 shrink-0" />
              <p>Vous pouvez sélectionner plusieurs sites pour voir l'ensemble des disponibilités.</p>
@@ -457,12 +457,12 @@ const StepRecap: React.FC<{
             </div>
 
             <Button onClick={onConfirm} className="w-full bg-[#009640] hover:bg-green-800 text-lg py-4">
-                Payer via Faso Arzeka <ChevronRight className="ml-2" />
+                Payer maintenant <ChevronRight className="ml-2" />
             </Button>
             
             {/* Timer visual */}
             <div className="flex justify-center items-center gap-2 text-red-600 font-mono font-bold bg-red-50 p-2 rounded-lg text-sm">
-                <Clock size={16} /> Temps restant pour valider : 20:00
+                <Clock size={16} /> Temps restant pour valider : {settings.timerDurationMinutes}:00
             </div>
         </div>
     );
@@ -492,7 +492,7 @@ const StepPayment: React.FC<{
     };
 
     const handleWhatsAppRedirect = () => {
-        const message = `Bonjour, j’ai effectué le paiement de ma souscription SONATUR.
+        const message = `Bonjour, j’ai effectué le paiement de ma souscription ${settings.companyName}.
 Nom : ${userData.fullName}
 Téléphone : ${userData.phone}
 Site : ${parcel.site}
@@ -772,9 +772,16 @@ export default function App() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
       e.preventDefault();
-      // Use Environment Variable for PIN or fallback for dev/demo
-      const envPin = (import.meta as any).env?.VITE_ADMIN_PIN || '1306';
-      if(adminPin === envPin) setIsAdminLoggedIn(true);
+      // Verifier d'abord le PIN configuré, sinon le PIN d'environnement, sinon le PIN par défaut
+      const validPin = systemSettings.adminPin || (import.meta as any).env?.VITE_ADMIN_PIN || '1306';
+      
+      if(adminPin === validPin) {
+          setIsAdminLoggedIn(true);
+          // Reset pin input for security
+          setAdminPin('');
+      } else {
+          alert('Code PIN incorrect');
+      }
   };
 
   if (isAdminLoggedIn) {
@@ -805,12 +812,12 @@ export default function App() {
                 <Building2 size={24} />
              </div>
              <div>
-                 <h1 className="text-lg font-bold text-gray-900 leading-tight tracking-tight">SONATUR</h1>
+                 <h1 className="text-lg font-bold text-gray-900 leading-tight tracking-tight">{systemSettings.companyName}</h1>
                  <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Souscription en ligne</p>
              </div>
           </div>
           <div className="flex items-center gap-2">
-             <a href={`https://wa.me/${systemSettings.whatsappNumber}`} className="bg-green-100 text-green-700 p-2 rounded-full">
+             <a href={`https://wa.me/${systemSettings.whatsappNumber}`} className="bg-green-100 text-green-700 p-2 rounded-full hover:bg-green-200 transition-colors">
                 <MessageCircle size={20} />
              </a>
           </div>
@@ -948,11 +955,34 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12 py-8 text-center text-sm text-gray-500">
-         <p className="font-bold text-[#009640] mb-2">SONATUR - Bâtir un cadre de vie idéal</p>
-         <p onClick={handleSecretAdminAccess} className="cursor-default hover:text-green-600 transition-colors">
-            &copy; {new Date().getFullYear()} Tous droits réservés.
-         </p>
+      <footer className="bg-white border-t border-gray-200 mt-12 py-8 px-4 text-center text-sm text-gray-600">
+         <div className="max-w-2xl mx-auto space-y-4">
+             <div>
+                <p className="font-bold text-[#009640] text-lg">{systemSettings.companyName}</p>
+                <p>{systemSettings.footerText}</p>
+             </div>
+             
+             <div className="flex flex-col md:flex-row justify-center gap-4 md:gap-8 py-4 border-t border-b border-gray-100 text-gray-500">
+                <div className="flex items-center justify-center gap-2">
+                    <MapPin size={16} />
+                    <span>{systemSettings.contactAddress || "Adresse non définie"}</span>
+                </div>
+                <div className="flex items-center justify-center gap-2">
+                    <Phone size={16} />
+                    <span>{systemSettings.whatsappNumber || "N/A"}</span>
+                </div>
+                {systemSettings.contactEmail && (
+                    <div className="flex items-center justify-center gap-2">
+                        <Mail size={16} />
+                        <span>{systemSettings.contactEmail}</span>
+                    </div>
+                )}
+             </div>
+
+             <p onClick={handleSecretAdminAccess} className="text-xs text-gray-400 cursor-default hover:text-green-600 transition-colors pt-2">
+                &copy; {new Date().getFullYear()} Tous droits réservés.
+             </p>
+         </div>
       </footer>
 
       {/* Floating WhatsApp */}
@@ -960,7 +990,7 @@ export default function App() {
          href={`https://wa.me/${systemSettings.whatsappNumber}`}
          target="_blank"
          rel="noreferrer"
-         className="fixed bottom-6 right-6 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:scale-110 transition-transform z-50 flex items-center justify-center"
+         className="fixed bottom-6 right-6 bg-[#25D366] text-white p-4 rounded-full shadow-lg hover:scale-110 transition-transform z-50 flex items-center justify-center hover:bg-[#128C7E]"
       >
         <MessageCircle size={28} />
       </a>

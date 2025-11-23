@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { SubscriptionStep, UserData, ParcelType, MOCK_PARCELS, MOCK_SUBSCRIPTIONS, SubscriptionRecord, SystemSettings, DEFAULT_SETTINGS, COUNTRIES } from './types';
 import StepIndicator from './components/StepIndicator';
@@ -23,6 +22,16 @@ const mapDbParcel = (p: any): ParcelType => ({
     description: p.description,
     status: p.status,
     imageUrl: p.image_url || p.imageUrl || "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5"
+});
+
+const mapDbSubscription = (s: any): SubscriptionRecord => ({
+  id: s.id,
+  date: s.created_at,
+  userData: s.user_data,
+  parcelId: s.parcel_id,
+  status: s.status,
+  paymentMethod: s.payment_method,
+  history: s.history || []
 });
 
 // --- STEP COMPONENTS ---
@@ -644,16 +653,29 @@ export default function App() {
              setSystemSettings(prev => ({...prev, ...settingsData.data}));
       }
 
-      // 2. Fetch Parcels
-      const { data: parcelsData, error } = await safeSupabaseQuery<any[]>(
-        supabase.from('parcels').select('*').eq('status', 'AVAILABLE') as any
+      // 2. Fetch Parcels (FETCH ALL for Admin, filtered later)
+      const { data: parcelsData, error: parcelsError } = await safeSupabaseQuery<any[]>(
+        supabase.from('parcels').select('*') as any
       );
       
       if (parcelsData && parcelsData.length > 0) {
         setParcels(parcelsData.map(mapDbParcel));
-      } else {
-        console.log("Database empty or not connected, using MOCK data.");
+      } else if (parcelsError) {
+        console.log("Database connection error, using MOCK data for Parcels.");
         setParcels(MOCK_PARCELS);
+      } else {
+        // Empty DB.
+      }
+
+      // 3. Fetch Subscriptions
+      const { data: subData, error: subError } = await safeSupabaseQuery<any[]>(
+        supabase.from('subscriptions').select('*').order('created_at', { ascending: false }) as any
+      );
+
+      if (subData && subData.length > 0) {
+          setSubscriptions(subData.map(mapDbSubscription));
+      } else if (!subError) {
+          setSubscriptions([]);
       }
     };
 
@@ -687,7 +709,8 @@ export default function App() {
       
       if (error) {
           console.error("Error saving subscription:", error);
-          // We proceed anyway to show success message, assuming the admin will check WhatsApp
+          alert("Erreur de connexion. Veuillez réessayer.");
+          return;
       }
 
       // 2. Move to success step
@@ -698,7 +721,6 @@ export default function App() {
       setSystemSettings(newSettings);
       
       // Save to Supabase (assuming ID=1 for single settings row)
-      // Check if row exists first or just upsert if ID is known
       const { error } = await supabase.from('settings').upsert({ id: 1, data: newSettings });
       if (error) console.error("Failed to save settings to DB", error);
   };
@@ -756,6 +778,17 @@ export default function App() {
      if (error) console.error("Error updating parcel", error);
   };
 
+  const handleAdminUpdateSubscription = async (id: string, status: 'VALIDATED' | 'REJECTED') => {
+      // Optimistic update
+      setSubscriptions(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+
+      const { error } = await supabase.from('subscriptions').update({ status }).eq('id', id);
+      if (error) {
+          console.error("Error updating subscription status", error);
+          alert("Erreur lors de la mise à jour.");
+      }
+  };
+
   // Secret Admin Trigger
   const clickCountRef = useRef(0);
   const lastClickTimeRef = useRef(0);
@@ -795,7 +828,7 @@ export default function App() {
             onAddParcel={handleAdminAddParcel}
             onUpdateParcel={handleAdminUpdateParcel}
             onDeleteParcel={handleAdminDeleteParcel}
-            onUpdateSubscription={() => {}} 
+            onUpdateSubscription={handleAdminUpdateSubscription} 
             lastEmailSent={null}
           />
       );

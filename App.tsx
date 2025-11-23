@@ -4,11 +4,26 @@ import { SubscriptionStep, UserData, ParcelType, MOCK_PARCELS, MOCK_SUBSCRIPTION
 import StepIndicator from './components/StepIndicator';
 import Button from './components/Button';
 import AdminPanel from './components/AdminPanel';
-import { CheckCircle, MapPin, User, CreditCard, FileText, Smartphone, Clock, ChevronLeft, ChevronRight, Info, Building2, Phone, ShieldCheck, Lock, AlertTriangle, MessageCircle, AlertCircle, X, Download, Home, DollarSign } from 'lucide-react';
+import { CheckCircle, MapPin, User, FileText, Smartphone, Clock, ChevronLeft, ChevronRight, Info, Building2, AlertTriangle, MessageCircle, X, ZoomIn } from 'lucide-react';
 import { supabase, safeSupabaseQuery } from './lib/supabaseClient';
 
 // --- COLORS CONSTANTS ---
 const BRAND_GREEN = "#009640"; // SONATUR GREEN
+
+// --- HELPER: MAP DB TO FRONTEND TYPES ---
+// Allows handling snake_case (DB) vs camelCase (Frontend)
+const mapDbParcel = (p: any): ParcelType => ({
+    id: p.id,
+    site: p.site,
+    category: p.category,
+    area: Number(p.area),
+    pricePerM2: Number(p.price_per_m2 || p.pricePerM2),
+    totalPrice: Number(p.total_price || p.totalPrice),
+    subscriptionFee: Number(p.subscription_fee || p.subscriptionFee),
+    description: p.description,
+    status: p.status,
+    imageUrl: p.image_url || p.imageUrl || "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5"
+});
 
 // --- STEP COMPONENTS ---
 
@@ -54,6 +69,9 @@ const StepIdentification: React.FC<{ data: UserData; onChange: (field: keyof Use
             className={inputClass}
             placeholder="Ex: OUEDRAOGO Jean"
           />
+          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+            <Info size={12} className="text-[#009640]"/> Tel qu'il figure sur votre pièce d'identité
+          </p>
         </div>
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-1">Téléphone *</label>
@@ -64,6 +82,9 @@ const StepIdentification: React.FC<{ data: UserData; onChange: (field: keyof Use
             className={inputClass}
             placeholder="Ex: 70000000"
           />
+          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+            <Info size={12} className="text-[#009640]"/> Numéro joignable (8 chiffres)
+          </p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email (Facultatif)</label>
@@ -134,9 +155,12 @@ const StepIdentification: React.FC<{ data: UserData; onChange: (field: keyof Use
             onChange={(e) => onChange('idNumber', e.target.value)} 
             className={inputClass}
           />
+          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+            <Info size={12} className="text-[#009640]"/> Ex: B1234567 pour une CNIB
+          </p>
         </div>
         <div>
-          <label className="block text-sm font-bold text-gray-700 mb-1">Date de délivrance *</label>
+          <label className="block text-sm font-bold text-gray-700 mb-1">Date d'émission *</label>
           <input 
             type="date" 
             value={data.idIssueDate} 
@@ -173,6 +197,9 @@ const StepIdentification: React.FC<{ data: UserData; onChange: (field: keyof Use
                 className={inputClass}
                 placeholder="Quartier, Secteur..."
             />
+            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                <Info size={12} className="text-[#009640]"/> Indiquez votre secteur ou quartier de résidence
+            </p>
         </div>
 
       </div>
@@ -181,110 +208,176 @@ const StepIdentification: React.FC<{ data: UserData; onChange: (field: keyof Use
   );
 };
 
-const StepSiteSelection: React.FC<{ onSelect: (site: string) => void }> = ({ onSelect }) => (
+const StepSiteSelection: React.FC<{ 
+    selectedSites: string[]; 
+    onToggle: (siteId: string) => void; 
+}> = ({ selectedSites, onToggle }) => (
     <div className="space-y-4">
         <h2 className="text-xl font-bold text-gray-800 text-center mb-6">Vente des parcelles SONATUR</h2>
+        <div className="bg-blue-50 text-blue-800 p-3 rounded-lg text-sm flex gap-2 items-start mb-4">
+             <Info size={16} className="mt-0.5 shrink-0" />
+             <p>Vous pouvez sélectionner plusieurs sites pour voir l'ensemble des disponibilités.</p>
+        </div>
         <div className="grid grid-cols-1 gap-4">
             {[
                 { id: 'ZINIARE', label: 'Ziniaré', desc: 'Site principal' },
                 { id: 'BINDOUGOUSSO', label: 'Bindougousso', desc: 'Bobo-Dioulasso' },
                 { id: 'OURODARA', label: 'OuroDara', desc: 'Zone communale' }
-            ].map((site) => (
-                <button
-                    key={site.id}
-                    onClick={() => onSelect(site.id)}
-                    className="flex items-center p-6 bg-white border-2 border-gray-100 rounded-xl hover:border-[#009640] hover:bg-green-50 transition shadow-sm group text-left"
-                >
-                    <div className="w-12 h-12 bg-green-100 text-[#009640] rounded-full flex items-center justify-center mr-4 group-hover:scale-110 transition-transform">
-                        <MapPin size={24} />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-lg text-gray-800">{site.label}</h3>
-                        <p className="text-sm text-gray-500">{site.desc}</p>
-                    </div>
-                    <div className="ml-auto text-gray-300 group-hover:text-[#009640]">
-                        <ChevronRight size={24} />
-                    </div>
-                </button>
-            ))}
+            ].map((site) => {
+                const isSelected = selectedSites.includes(site.id);
+                return (
+                    <button
+                        key={site.id}
+                        onClick={() => onToggle(site.id)}
+                        className={`flex items-center p-4 sm:p-6 border-2 rounded-xl transition shadow-sm group text-left w-full
+                             ${isSelected ? 'border-[#009640] bg-green-50' : 'border-gray-100 bg-white hover:border-green-200'}
+                        `}
+                    >
+                        <div className={`w-8 h-8 rounded border-2 flex items-center justify-center mr-4 shrink-0 transition-colors
+                            ${isSelected ? 'bg-[#009640] border-[#009640] text-white' : 'border-gray-300 bg-white'}
+                        `}>
+                            {isSelected && <CheckCircle size={18} />}
+                        </div>
+                        <div className="flex-1">
+                            <h3 className={`font-bold text-lg ${isSelected ? 'text-[#009640]' : 'text-gray-800'}`}>{site.label}</h3>
+                            <p className="text-sm text-gray-500">{site.desc}</p>
+                        </div>
+                        <div className="ml-auto text-gray-300">
+                            <MapPin size={24} className={isSelected ? 'text-[#009640]' : ''} />
+                        </div>
+                    </button>
+                );
+            })}
         </div>
     </div>
 );
 
 const StepParcelList: React.FC<{ 
     parcels: ParcelType[]; 
-    site: string;
+    sites: string[];
     selected: ParcelType | null; 
     onSelect: (parcel: ParcelType) => void;
-}> = ({ parcels, site, selected, onSelect }) => {
-    // Filter by Site
-    const siteParcels = parcels.filter(p => p.site === site);
+}> = ({ parcels, sites, selected, onSelect }) => {
+    // Filter by Sites
+    const siteParcels = parcels.filter(p => sites.includes(p.site));
     
     // Extract unique categories for filter tabs
     const categories = Array.from(new Set(siteParcels.map(p => p.category)));
-    const [activeCat, setActiveCat] = useState<string>(categories[0] || '');
+    const [activeCat, setActiveCat] = useState<string>('');
+    const [hoveredImage, setHoveredImage] = useState<string | null>(null);
 
     useEffect(() => {
-        if(categories.length > 0 && !activeCat) setActiveCat(categories[0]);
+        if(categories.length > 0 && (!activeCat || !categories.includes(activeCat))) {
+            setActiveCat(categories[0]);
+        }
     }, [categories, activeCat]);
 
     const displayParcels = siteParcels.filter(p => p.category === activeCat);
 
+    // Helper to get friendly name
+    const getSiteName = (code: string) => {
+        const names: Record<string, string> = { 'ZINIARE': 'Ziniaré', 'BINDOUGOUSSO': 'Bobo', 'OURODARA': 'OuroDara' };
+        return names[code] || code;
+    }
+
     return (
         <div className="space-y-6">
-            <h2 className="text-lg font-bold text-gray-700">Parcelles disponibles à {site}</h2>
+            <h2 className="text-lg font-bold text-gray-700">Parcelles disponibles ({siteParcels.length})</h2>
             
             {/* Category Tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {categories.map(cat => (
-                    <button
-                        key={cat}
-                        onClick={() => setActiveCat(cat)}
-                        className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors
-                            ${activeCat === cat 
-                                ? 'bg-[#009640] text-white shadow-md' 
-                                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
-                    >
-                        {cat}
-                    </button>
-                ))}
-            </div>
+            {categories.length > 0 ? (
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {categories.map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => setActiveCat(cat)}
+                            className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors
+                                ${activeCat === cat 
+                                    ? 'bg-[#009640] text-white shadow-md' 
+                                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+            ) : (
+                <div className="bg-yellow-50 text-yellow-800 p-4 rounded-lg text-sm">
+                    Aucune catégorie trouvée pour les sites sélectionnés.
+                </div>
+            )}
 
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {displayParcels.length > 0 ? displayParcels.map(parcel => (
                     <div 
                         key={parcel.id}
                         onClick={() => parcel.status === 'AVAILABLE' && onSelect(parcel)}
-                        className={`border rounded-xl p-4 flex flex-col gap-3 relative transition-all
-                            ${selected?.id === parcel.id ? 'border-[#009640] bg-green-50 ring-1 ring-[#009640]' : 'border-gray-200 bg-white'}
-                            ${parcel.status !== 'AVAILABLE' ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer hover:shadow-md'}
+                        className={`border rounded-xl overflow-hidden flex flex-col gap-3 relative transition-all duration-300 group
+                            ${selected?.id === parcel.id ? 'border-[#009640] bg-green-50 ring-1 ring-[#009640]' : 'border-gray-200 bg-white hover:border-green-400 hover:shadow-lg hover:-translate-y-1'}
+                            ${parcel.status !== 'AVAILABLE' ? 'opacity-50 grayscale cursor-not-allowed' : 'cursor-pointer'}
                         `}
                     >
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">{parcel.id}</span>
-                                <h4 className="font-bold text-gray-800 mt-1">{parcel.category}</h4>
-                                <p className="text-xs text-gray-500">{parcel.area} m² à {parcel.pricePerM2.toLocaleString()} F/m²</p>
+                        {/* Image Header with Hover Effect */}
+                        <div 
+                            className="h-32 w-full bg-gray-200 relative overflow-hidden cursor-zoom-in"
+                            onMouseEnter={() => setHoveredImage(parcel.imageUrl)}
+                            onMouseLeave={() => setHoveredImage(null)}
+                        >
+                            <img src={parcel.imageUrl} alt={parcel.id} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" />
+                            <div className="absolute top-2 left-2 flex gap-2">
+                                <span className="text-[10px] font-bold bg-black/70 backdrop-blur-sm text-white px-2 py-1 rounded uppercase tracking-wide shadow-sm">
+                                    {getSiteName(parcel.site)}
+                                </span>
                             </div>
-                            <div className="text-right">
-                                <p className="font-bold text-[#009640] text-lg">{parcel.totalPrice.toLocaleString()} F</p>
-                                {parcel.status !== 'AVAILABLE' && (
-                                    <span className="inline-block px-2 py-1 bg-red-100 text-red-600 text-[10px] font-bold rounded mt-1">
-                                        {parcel.status === 'SOLD' ? 'VENDU' : 'RÉSERVÉ'}
-                                    </span>
-                                )}
+                            {/* Hint overlay */}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+                                <ZoomIn className="text-white drop-shadow-lg" size={24} />
                             </div>
                         </div>
+
+                        <div className="p-4 pt-2">
+                            <div className="flex justify-between items-start mb-2">
+                                <div>
+                                    <span className="text-[10px] font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-600 block w-fit mb-1">{parcel.id}</span>
+                                    <h4 className="font-bold text-gray-800 leading-tight">{parcel.category}</h4>
+                                    <p className="text-xs text-gray-500 mt-1">{parcel.area} m² à {parcel.pricePerM2.toLocaleString()} F/m²</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-bold text-[#009640] text-lg">{parcel.totalPrice.toLocaleString()} F</p>
+                                    {parcel.status !== 'AVAILABLE' && (
+                                        <span className="inline-block px-2 py-1 bg-red-100 text-red-600 text-[10px] font-bold rounded mt-1">
+                                            {parcel.status === 'SOLD' ? 'VENDU' : 'RÉSERVÉ'}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
                         {selected?.id === parcel.id && (
-                            <div className="absolute top-2 right-2 text-[#009640]">
+                            <div className="absolute top-2 right-2 bg-white text-[#009640] rounded-full p-1 shadow-md">
                                 <CheckCircle size={20} />
                             </div>
                         )}
                     </div>
                 )) : (
-                    <p className="text-center text-gray-500 py-8">Aucune parcelle disponible dans cette catégorie.</p>
+                    <p className="text-center text-gray-500 py-8 col-span-full">Aucune parcelle disponible dans cette catégorie.</p>
                 )}
             </div>
+
+            {/* Large Image Hover Preview Overlay */}
+            {hoveredImage && (
+                <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
+                    <div className="bg-white p-2 rounded-xl shadow-2xl animate-in zoom-in duration-200 border-4 border-white/50 backdrop-blur-sm">
+                        <img 
+                            src={hoveredImage} 
+                            alt="Aperçu" 
+                            className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg shadow-inner"
+                        />
+                        <div className="absolute bottom-4 left-0 right-0 text-center">
+                            <span className="bg-black/75 text-white text-xs px-3 py-1 rounded-full backdrop-blur-md">Aperçu de la parcelle</span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -327,6 +420,8 @@ const StepRecap: React.FC<{
                         <span className="font-bold text-right">{userData.phone}</span>
                         <span className="text-gray-500">Document</span>
                         <span className="font-bold text-right">{userData.idType} - {userData.idNumber}</span>
+                        <span className="text-gray-500">Date d'émission</span>
+                        <span className="font-bold text-right">{userData.idIssueDate}</span>
                     </div>
 
                     {/* Infos Parcelle */}
@@ -377,10 +472,11 @@ const StepPayment: React.FC<{
     userData: UserData; 
     parcel: ParcelType; 
     settings: SystemSettings;
-    onFinish: () => void;
+    onFinish: (paymentMethod: string) => void;
 }> = ({ userData, parcel, settings, onFinish }) => {
     const [timeLeft, setTimeLeft] = useState(settings.timerDurationMinutes * 60);
     const [method, setMethod] = useState<'ORANGE' | 'MOOV' | null>(null);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -407,10 +503,39 @@ Merci de confirmer la réception.`;
 
         const url = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(message)}`;
         window.open(url, '_blank');
-        onFinish();
+        setShowConfirmModal(true);
     };
 
     const instructions = method === 'ORANGE' ? settings.orangeMoney : settings.moovMoney;
+
+    if (showConfirmModal) {
+        return (
+             <div className="bg-white p-6 rounded-xl border-2 border-[#009640] shadow-lg text-center space-y-6 animate-in zoom-in">
+                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto text-[#009640]">
+                     <MessageCircle size={40} />
+                 </div>
+                 <div>
+                     <h3 className="text-xl font-bold text-gray-800 mb-2">Vérification Finale</h3>
+                     <p className="text-gray-600 mb-4">Avez-vous bien envoyé le message de confirmation sur WhatsApp avec la capture d'écran de votre paiement ?</p>
+                     <div className="bg-yellow-50 text-yellow-800 p-3 rounded-lg text-sm mb-2 text-left flex gap-2">
+                        <AlertTriangle className="shrink-0 w-5 h-5" />
+                        <p>Sans cette confirmation WhatsApp, votre souscription ne pourra pas être validée par nos services.</p>
+                     </div>
+                 </div>
+                 <div className="flex flex-col gap-3">
+                     <Button 
+                        onClick={() => method && onFinish(method)} 
+                        className="bg-[#009640] py-4 text-lg"
+                    >
+                         Oui, c'est fait
+                     </Button>
+                     <Button variant="outline" onClick={() => setShowConfirmModal(false)}>
+                         Non, revenir aux instructions
+                     </Button>
+                 </div>
+             </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -487,6 +612,7 @@ Merci de confirmer la réception.`;
 export default function App() {
   const [step, setStep] = useState<SubscriptionStep>(SubscriptionStep.CONDITIONS);
   const [conditionsAccepted, setConditionsAccepted] = useState(false);
+  const [animClass, setAnimClass] = useState("animate-in fade-in slide-in-from-bottom-4");
   
   const [userData, setUserData] = useState<UserData>({
     fullName: '', phone: '', email: '', birthDate: '', birthPlace: '',
@@ -494,12 +620,12 @@ export default function App() {
     idIssueDate: '', addressType: '', address: '', country: ''
   });
 
-  const [selectedSite, setSelectedSite] = useState<string | null>(null);
+  const [selectedSites, setSelectedSites] = useState<string[]>([]);
   const [selectedParcel, setSelectedParcel] = useState<ParcelType | null>(null);
   
   // Settings & Data
   const [systemSettings, setSystemSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
-  const [parcels, setParcels] = useState<ParcelType[]>(MOCK_PARCELS);
+  const [parcels, setParcels] = useState<ParcelType[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionRecord[]>(MOCK_SUBSCRIPTIONS);
   
   // Admin Login
@@ -507,14 +633,128 @@ export default function App() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [adminPin, setAdminPin] = useState('');
 
-  // Initial Load (Simulated)
+  // Initial Load with Supabase (Graceful degradation to Mocks)
   useEffect(() => {
-     // In a real app, fetch settings from Supabase here
-     // safeSupabaseQuery(supabase.from('settings').select('*').single()).then(...)
+    const fetchData = async () => {
+      // 1. Fetch Settings
+      const { data: settingsData } = await safeSupabaseQuery<any>(
+        supabase.from('settings').select('*').limit(1).single() as any
+      );
+      if (settingsData && settingsData.data) {
+             setSystemSettings(prev => ({...prev, ...settingsData.data}));
+      }
+
+      // 2. Fetch Parcels
+      const { data: parcelsData, error } = await safeSupabaseQuery<any[]>(
+        supabase.from('parcels').select('*').eq('status', 'AVAILABLE') as any
+      );
+      
+      if (parcelsData && parcelsData.length > 0) {
+        setParcels(parcelsData.map(mapDbParcel));
+      } else {
+        console.log("Database empty or not connected, using MOCK data.");
+        setParcels(MOCK_PARCELS);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  const handleNext = () => setStep(s => s + 1);
-  const handleBack = () => setStep(s => s - 1);
+  const handleNext = () => {
+    setAnimClass("animate-in fade-in slide-in-from-right");
+    setStep(s => s + 1);
+  };
+  
+  const handleBack = () => {
+    setAnimClass("animate-in fade-in slide-in-from-left");
+    setStep(s => s - 1);
+  };
+
+  // Function to save subscription to Supabase
+  const handleSubscriptionFinish = async (paymentMethod: string) => {
+      if (!selectedParcel) return;
+
+      // 1. Save to Supabase
+      const newSub = {
+          user_data: userData,
+          parcel_id: selectedParcel.id,
+          status: 'PENDING',
+          payment_method: paymentMethod,
+          created_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase.from('subscriptions').insert([newSub]);
+      
+      if (error) {
+          console.error("Error saving subscription:", error);
+          // We proceed anyway to show success message, assuming the admin will check WhatsApp
+      }
+
+      // 2. Move to success step
+      handleNext();
+  };
+
+  const handleAdminUpdateSettings = async (newSettings: SystemSettings) => {
+      setSystemSettings(newSettings);
+      
+      // Save to Supabase (assuming ID=1 for single settings row)
+      // Check if row exists first or just upsert if ID is known
+      const { error } = await supabase.from('settings').upsert({ id: 1, data: newSettings });
+      if (error) console.error("Failed to save settings to DB", error);
+  };
+
+  const handleAdminDeleteParcel = async (id: string) => {
+      // Optimistic update
+      setParcels(parcels.filter(p => p.id !== id));
+      
+      // DB Update
+      const { error } = await supabase.from('parcels').delete().eq('id', id);
+      if (error) {
+          console.error("Erreur suppression DB", error);
+          alert("Erreur lors de la suppression en base de données. Vérifiez la connexion.");
+      }
+  };
+
+  const handleAdminAddParcel = async (parcel: ParcelType) => {
+     // Prepare for DB (snake_case)
+     const dbParcel = {
+         id: parcel.id,
+         site: parcel.site,
+         category: parcel.category,
+         area: parcel.area,
+         price_per_m2: parcel.pricePerM2,
+         total_price: parcel.totalPrice,
+         subscription_fee: parcel.subscriptionFee,
+         description: parcel.description,
+         status: parcel.status,
+         image_url: parcel.imageUrl
+     };
+
+     setParcels([...parcels, parcel]);
+     const { error } = await supabase.from('parcels').insert([dbParcel]);
+     if (error) console.error("Error adding parcel", error);
+  }
+
+  const handleAdminUpdateParcel = async (parcel: ParcelType) => {
+     // Optimistic update
+     setParcels(parcels.map(p => p.id === parcel.id ? parcel : p));
+
+     const dbParcel = {
+         id: parcel.id,
+         site: parcel.site,
+         category: parcel.category,
+         area: parcel.area,
+         price_per_m2: parcel.pricePerM2,
+         total_price: parcel.totalPrice,
+         subscription_fee: parcel.subscriptionFee,
+         description: parcel.description,
+         status: parcel.status,
+         image_url: parcel.imageUrl
+     };
+     
+     const { error } = await supabase.from('parcels').update(dbParcel).eq('id', parcel.id);
+     if (error) console.error("Error updating parcel", error);
+  };
 
   // Secret Admin Trigger
   const clickCountRef = useRef(0);
@@ -532,7 +772,9 @@ export default function App() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
       e.preventDefault();
-      if(adminPin === '1306') setIsAdminLoggedIn(true);
+      // Use Environment Variable for PIN or fallback for dev/demo
+      const envPin = (import.meta as any).env?.VITE_ADMIN_PIN || '1306';
+      if(adminPin === envPin) setIsAdminLoggedIn(true);
   };
 
   if (isAdminLoggedIn) {
@@ -541,11 +783,11 @@ export default function App() {
             parcels={parcels}
             subscriptions={subscriptions}
             settings={systemSettings}
-            onUpdateSettings={setSystemSettings}
+            onUpdateSettings={handleAdminUpdateSettings}
             onLogout={() => setIsAdminLoggedIn(false)}
-            onAddParcel={(p) => setParcels([...parcels, p])}
-            onUpdateParcel={(p) => setParcels(parcels.map(Px => Px.id === p.id ? p : Px))}
-            onDeleteParcel={(id) => setParcels(parcels.filter(p => p.id !== id))}
+            onAddParcel={handleAdminAddParcel}
+            onUpdateParcel={handleAdminUpdateParcel}
+            onDeleteParcel={handleAdminDeleteParcel}
             onUpdateSubscription={() => {}} 
             lastEmailSent={null}
           />
@@ -580,7 +822,7 @@ export default function App() {
 
         <div className="mt-6">
             {step === SubscriptionStep.CONDITIONS && (
-                <div className="animate-in fade-in slide-in-from-bottom-4">
+                <div className={animClass}>
                     <StepConditions 
                         accepted={conditionsAccepted} 
                         onToggle={() => setConditionsAccepted(!conditionsAccepted)}
@@ -595,13 +837,26 @@ export default function App() {
             )}
 
             {step === SubscriptionStep.IDENTIFICATION && (
-                <div className="animate-in fade-in slide-in-from-bottom-4">
+                <div className={animClass}>
                     <StepIdentification data={userData} onChange={(k, v) => setUserData({...userData, [k]: v})} />
                     <div className="mt-6 flex justify-between">
                         <Button variant="outline" onClick={handleBack}>Retour</Button>
                         <Button 
                             onClick={handleNext} 
-                            disabled={!userData.fullName || !userData.phone || !userData.idNumber || !userData.country}
+                            disabled={
+                                !userData.fullName || 
+                                !userData.phone || 
+                                !userData.birthDate ||
+                                !userData.birthPlace ||
+                                !userData.profession ||
+                                !userData.gender ||
+                                !userData.idType ||
+                                !userData.idNumber || 
+                                !userData.idIssueDate ||
+                                !userData.addressType ||
+                                !userData.address ||
+                                !userData.country
+                            }
                             className="bg-[#009640]"
                         >
                             Suivant <ChevronRight className="ml-2" />
@@ -611,19 +866,35 @@ export default function App() {
             )}
 
             {step === SubscriptionStep.SITE_SELECTION && (
-                <div className="animate-in fade-in slide-in-from-bottom-4">
-                    <StepSiteSelection onSelect={(site) => { setSelectedSite(site); handleNext(); }} />
-                    <div className="mt-6 flex justify-start">
+                <div className={animClass}>
+                    <StepSiteSelection 
+                        selectedSites={selectedSites} 
+                        onToggle={(siteId) => {
+                             setSelectedSites(prev => 
+                                prev.includes(siteId) 
+                                   ? prev.filter(id => id !== siteId)
+                                   : [...prev, siteId]
+                             );
+                        }} 
+                    />
+                    <div className="mt-6 flex justify-between">
                         <Button variant="outline" onClick={handleBack}>Retour</Button>
+                        <Button 
+                            onClick={handleNext} 
+                            disabled={selectedSites.length === 0}
+                            className="bg-[#009640]"
+                        >
+                            Suivant <ChevronRight className="ml-2" />
+                        </Button>
                     </div>
                 </div>
             )}
 
-            {step === SubscriptionStep.PARCEL_LIST && selectedSite && (
-                <div className="animate-in fade-in slide-in-from-bottom-4">
+            {step === SubscriptionStep.PARCEL_LIST && selectedSites.length > 0 && (
+                <div className={animClass}>
                     <StepParcelList 
                         parcels={parcels} 
-                        site={selectedSite}
+                        sites={selectedSites}
                         selected={selectedParcel}
                         onSelect={setSelectedParcel}
                     />
@@ -637,7 +908,7 @@ export default function App() {
             )}
 
             {step === SubscriptionStep.RECAP && selectedParcel && (
-                <div className="animate-in fade-in slide-in-from-bottom-4">
+                <div className={animClass}>
                     <StepRecap 
                         userData={userData}
                         parcel={selectedParcel}
@@ -651,12 +922,12 @@ export default function App() {
             )}
 
             {step === SubscriptionStep.PAYMENT && selectedParcel && (
-                 <div className="animate-in fade-in slide-in-from-bottom-4">
+                 <div className={animClass}>
                     <StepPayment 
                         userData={userData}
                         parcel={selectedParcel}
                         settings={systemSettings}
-                        onFinish={handleNext}
+                        onFinish={handleSubscriptionFinish}
                     />
                  </div>
             )}
@@ -667,7 +938,7 @@ export default function App() {
                         <CheckCircle size={48} />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-800 mb-2">Merci pour votre souscription !</h2>
-                    <p className="text-gray-600 mb-8">Votre paiement est en cours de vérification par nos services.</p>
+                    <p className="text-gray-600 mb-8">Votre paiement est en cours de vérification par nos services. Une fois validé, vous recevrez une confirmation.</p>
                     <Button onClick={() => window.location.reload()} variant="outline">
                         Retour à l'accueil
                     </Button>
@@ -679,7 +950,7 @@ export default function App() {
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-12 py-8 text-center text-sm text-gray-500">
          <p className="font-bold text-[#009640] mb-2">SONATUR - Bâtir un cadre de vie idéal</p>
-         <p onClick={handleSecretAdminAccess} className="cursor-default">
+         <p onClick={handleSecretAdminAccess} className="cursor-default hover:text-green-600 transition-colors">
             &copy; {new Date().getFullYear()} Tous droits réservés.
          </p>
       </footer>
@@ -697,16 +968,17 @@ export default function App() {
       {/* Admin Login Modal */}
       {isAdminLoginOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-           <div className="bg-white p-6 rounded-xl w-full max-w-xs relative">
-              <button onClick={() => setIsAdminLoginOpen(false)} className="absolute top-2 right-2 text-gray-400"><X size={20}/></button>
-              <h2 className="text-center font-bold mb-4">Admin Access</h2>
+           <div className="bg-white p-6 rounded-xl w-full max-w-xs relative animate-in zoom-in">
+              <button onClick={() => setIsAdminLoginOpen(false)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500"><X size={20}/></button>
+              <h2 className="text-center font-bold mb-4 text-[#009640]">Accès Admin</h2>
               <form onSubmit={handleAdminLogin}>
                   <input 
                     type="password" 
-                    className="w-full border p-2 rounded mb-4 text-center tracking-widest" 
-                    placeholder="PIN" 
+                    className="w-full border p-2 rounded mb-4 text-center tracking-widest text-lg" 
+                    placeholder="CODE PIN" 
                     value={adminPin} 
                     onChange={e => setAdminPin(e.target.value)}
+                    autoFocus
                   />
                   <Button type="submit" className="w-full bg-[#009640]">Entrer</Button>
               </form>

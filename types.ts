@@ -116,7 +116,7 @@ Pièces à fournir au plus tard le 01/01/2026 :
       "Composez *144# sur votre téléphone",
       "Sélectionnez 'Transfert d'argent'",
       "Entrez le numéro : +226 44 38 68 52 (ADAMA SERI)",
-      "Entrez le montant : 50 000 FCFA",
+      "Entrez le montant : MONTANT FCFA",
       "Confirmez avec votre code PIN",
       "Conservez le SMS de transaction",
       "Cliquez sur 'Envoyer sur WhatsApp'"
@@ -130,7 +130,7 @@ Pièces à fournir au plus tard le 01/01/2026 :
       "Composez *555# sur votre téléphone",
       "Sélectionnez 'Transfert d'argent'",
       "Entrez le numéro : 0000000000 (Non encore disponible)",
-      "Entrez le montant : 50 000 FCFA",
+      "Entrez le montant : MONTANT FCFA",
       "Confirmez avec votre code PIN",
       "Conservez le SMS de transaction",
       "Cliquez sur 'Envoyer sur WhatsApp'"
@@ -145,7 +145,7 @@ const getEnv = (key: string) => {
 
 export const SONATUR_PHONE = getEnv('VITE_WHATSAPP_NUMBER') || "22644386852";
 
-// Données Mock mises à jour avec les 3 sites demandés
+// Données Mock mises à jour avec des images adaptées au contexte local (Burkina Faso / Sahel)
 export const MOCK_PARCELS: ParcelType[] = [
   // ZINIARÉ
   {
@@ -158,7 +158,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     subscriptionFee: 50000,
     description: "Zone: Habitation Ordinaire (L2), Section A, Lot 06. Terrain plat.",
     status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1547471080-7cc2caa01a7e?q=80&w=800&auto=format&fit=crop"
+    // Paysage de savane, terre rouge
+    imageUrl: "https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?q=80&w=800&auto=format&fit=crop"
   },
   {
     id: "ZIN-COM-002",
@@ -168,12 +169,13 @@ export const MOCK_PARCELS: ParcelType[] = [
     pricePerM2: 9900,
     totalPrice: 3960000,
     subscriptionFee: 50000,
-    description: "Zone commerciale stratégique, bordure de voie.",
+    description: "Zone commerciale stratégique, bordure de voie bitumée.",
     status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1623228950926-47249491b520?auto=format&fit=crop&w=800&q=80"
+    // Route en terre rouge typique
+    imageUrl: "https://images.unsplash.com/photo-1547471080-7541fbe397ad?q=80&w=800&auto=format&fit=crop"
   },
   
-  // BINDOUGOUSSO (BOBO) - 2 Parcelles
+  // BINDOUGOUSSO (BOBO)
   {
     id: "BOBO-BIN-01",
     site: "BINDOUGOUSSO",
@@ -184,7 +186,8 @@ export const MOCK_PARCELS: ParcelType[] = [
     subscriptionFee: 50000,
     description: "Section B, Lot 12. Quartier en plein développement.",
     status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1518182170546-07661d4eea9f?auto=format&fit=crop&w=800&q=80"
+    // Paysage rural / semi-urbain
+    imageUrl: "https://images.unsplash.com/photo-1489749798305-4fea3ae63d43?q=80&w=800&auto=format&fit=crop"
   },
   {
     id: "BOBO-BIN-02",
@@ -196,10 +199,11 @@ export const MOCK_PARCELS: ParcelType[] = [
     subscriptionFee: 50000,
     description: "Zone commerciale, angle de rue principale.",
     status: 'AVAILABLE',
-    imageUrl: "https://images.unsplash.com/photo-1533378154896-668f952607a4?auto=format&fit=crop&w=800&q=80"
+    // Arbres type Baobab ou Karité
+    imageUrl: "https://images.unsplash.com/photo-1523805009345-7448845a9e53?q=80&w=800&auto=format&fit=crop"
   },
 
-  // OURODARA - 1 Parcelle
+  // OURODARA
   {
     id: "OURO-001",
     site: "OURODARA",
@@ -208,7 +212,7 @@ export const MOCK_PARCELS: ParcelType[] = [
     pricePerM2: 4500,
     totalPrice: 1800000,
     subscriptionFee: 50000,
-    description: "Lotissement communal, Section C.",
+    description: "Lotissement communal, Section C. Cadre verdoyant.",
     status: 'AVAILABLE',
     imageUrl: "https://images.unsplash.com/photo-1599939571322-792a326991f2?auto=format&fit=crop&w=800&q=80"
   }

@@ -12,6 +12,67 @@
         font-family: 'Inter', sans-serif;
         background-color: #f3f4f6;
       }
+
+      /* Custom Animations matching tailwindcss-animate utility names */
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      
+      @keyframes slideInBottom {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      
+      @keyframes slideInRight {
+        from { transform: translateX(20px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+
+      @keyframes slideInLeft {
+        from { transform: translateX(-20px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+
+      @keyframes zoomIn {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+
+      .animate-in {
+        animation-duration: 0.4s;
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); /* Ease out expo */
+        animation-fill-mode: both;
+      }
+
+      .fade-in {
+        animation-name: fadeIn;
+      }
+
+      .slide-in-from-bottom-4 {
+        animation-name: slideInBottom;
+      }
+      
+      .slide-in-from-right {
+        animation-name: slideInRight;
+      }
+      
+      .slide-in-from-left {
+        animation-name: slideInLeft;
+      }
+
+      .zoom-in {
+        animation-name: zoomIn;
+      }
+
+      /* Utility to hide scrollbar but allow scrolling */
+      .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+      }
+      .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+      }
     </style>
   <script type="importmap">
 {
